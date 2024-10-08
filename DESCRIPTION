@@ -1,0 +1,20 @@
+Package: MRsurv
+Title: Multiply Robust Estimation of Survival Curve with Time-Varying Covariates
+Version: 0.0.1
+Authors@R: 
+    person(given = "Hongxiang",
+           family = "Qiu",
+           role = c("aut", "cre"),
+           email = "david940408@gmail.com",
+           comment = c(ORCID = "0000-0002-5207-1818"))
+Description: This package provides functions for multiply robust estimation of the survival curve with time-varying covariates. Covariates are collected at fixed time points (visit times); event and censoring are actively monitored so that time to event/censoring (whichever occurs first) is observed. Functions can estimate P(T>t|T>t0,W) for multiple values of t, where t0 is a visit time, W is a function (e.g., subset) of covariates available up to t0, and t>t0 is a fixed time. The user may set t0 to be the entry time and W to be empty in order to estimate the marginal survival probability.
+License: GPL-3
+Depends: 
+    R (>= 2.10),
+    SuperLearner
+Imports: rlang, dplyr (>= 1.0.2), purrr, assertthat, matrixStats, survival
+Suggests: survSuperLearner, randomForestSRC, rpart, party, partykit, survivalmodels
+Encoding: UTF-8
+LazyData: true
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.2

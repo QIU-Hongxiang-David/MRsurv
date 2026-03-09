@@ -4,15 +4,15 @@
 \alias{intercept_IF_model}
 \title{S3 class for predictive models with an intercept only and influence function information}
 \usage{
-intercept_IF_model(value, IF)
+intercept_IF_model(est, IF)
 }
 \arguments{
-\item{value}{the predicted mean value}
+\item{est}{the predicted mean}
 
 \item{IF}{named vector of influence function in one time window evaluated at each observation. The name corresponds to each observation's id. Used to calculate standard error and confidence interval for MR estimator of a scalar estimand (rather than a function).}
 }
 \value{
-an "\code{intercept_IF_model}" object, essentially a list with element \code{value} and \code{IF}.
+an "\code{intercept_IF_model}" object, essentially a list with element \code{est} and \code{IF}.
 }
 \description{
 S3 class for predictive models with an intercept only and influence function information

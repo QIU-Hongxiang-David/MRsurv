@@ -94,73 +94,69 @@ IPCWreg.SuperLearner<-function(
 ){
     assert_that(denom.survival.trunc>=0,denom.survival.trunc<=1)
     
+    #K is the last visit.time that needs to be considered
+    K<-find.last.TRUE.index(visit.times<tvals)
+    
     index.shift<-truncation.index-1 #shift for the index of pred_censor.list
     
-    models<-lapply(seq_along(tvals),function(i){
-        #K is the last visit.time that needs to be considered
-        K<-find.last.TRUE.index(visit.times<tvals[i])
-        
-        history<-reduce(covariates[1:truncation.index],.f=function(d1,d2){
-            right_join(d1,d2,by=id.var)
-        })%>%arrange(.data[[id.var]])
-        
-        pred_censor_obj<-pred_censor.list[[K-index.shift]]
-        next.visit.time<-tvals[i]
-        Y.IPCW<-IPCWtransform(follow.up.time,pred_censor_obj,tvals[i],
-                              next.visit.time=next.visit.time,
-                              id.var,time.var,event.var,denom.survival.trunc)
-        Y.IPCW<-sort_by(Y.IPCW[,1],rownames(Y.IPCW))
-        
-        IPCW<-rep(1,length(Y.IPCW))
-        if(K>truncation.index){
-            for(k in (K-1):truncation.index){
-                pred_censor_obj<-pred_censor.list[[k-index.shift]]
-                k.t<-find.last.TRUE.index(pred_censor_obj$time<=visit.times[k+1],noTRUE=0)
-                if(k.t==0){
-                    Ghat.t<-1
-                }else{
-                    Ghat.t<-pred_censor_obj$surv[,k.t]
-                    # Ghat.t<-Ghat.t[order(names(Ghat.t))]
-                    Ghat.t<-Ghat.t[names(Ghat.t) %in% names(Y.IPCW)]
-                    Ghat.t<-sort_by(Ghat.t,names(Ghat.t))
-                    Ghat.t<-pmax(Ghat.t,denom.survival.trunc)
-                }
-                IPCW<-IPCW/Ghat.t
-            }
-        }
-        Y.IPCW<-Y.IPCW*IPCW
-        Y<-numeric(nrow(history))
-        names(Y)<-history%>%pull(.data[[id.var]])
-        Y[names(Y.IPCW)]<-Y.IPCW
-        
-        X<-model.frame(Q.formula,history%>%filter(.data[[id.var]] %in% names(Y))%>%arrange(.data[[id.var]])%>%select(!.data[[id.var]]))
-        
-        if(is.null(obs.weight.var)){
-            obsWeights<-NULL
-        }else{
-            obsWeights<-follow.up.time%>%filter(.data[[id.var]] %in% names(Y))%>%arrange(.data[[id.var]])%>%pull(obs.weight.var)
-            names(obsWeights)<-names(Y)
-        }
-        
-        if(ncol(X)==0){
-            if(is.null(obsWeights)){
-                est<-mean(Y)
+    history<-reduce(covariates[1:truncation.index],.f=function(d1,d2){
+        right_join(d1,d2,by=id.var)
+    })%>%arrange(.data[[id.var]])
+    
+    pred_censor_obj<-pred_censor.list[[K-index.shift]]
+    next.visit.time<-tvals
+    Y.IPCW<-IPCWtransform(follow.up.time,pred_censor_obj,tvals,
+                    next.visit.time=next.visit.time,
+                    id.var,time.var,event.var,denom.survival.trunc)
+    Y.IPCW<-sort_by(Y.IPCW[,1],rownames(Y.IPCW))
+    
+    IPCW<-rep(1,length(Y.IPCW))
+    if(K>truncation.index){
+        for(k in (K-1):truncation.index){
+            pred_censor_obj<-pred_censor.list[[k-index.shift]]
+            k.t<-find.last.TRUE.index(pred_censor_obj$time<=visit.times[k+1],noTRUE=0)
+            if(k.t==0){
+                Ghat.t<-1
             }else{
-                # message(paste(obs.weight.var,"might not be correctly accounted for in the standard error due to failure fully account for the sampling scheme."))
-                est<-mean(Y*obsWeights)/mean(obsWeights)
-                # est<-mean(Y*obsWeights)
+                Ghat.t<-pred_censor_obj$surv[,k.t]
+                # Ghat.t<-Ghat.t[order(names(Ghat.t))]
+                Ghat.t<-Ghat.t[names(Ghat.t) %in% names(Y.IPCW)]
+                Ghat.t<-sort_by(Ghat.t,names(Ghat.t))
+                Ghat.t<-pmax(Ghat.t,denom.survival.trunc)
             }
-            model<-intercept_model(est)
-            return(model)
-        }else{
-            SuperLearner.arg<-c(
-                list(Y=Y,X=X,obsWeights=obsWeights),
-                Q.SuperLearner.control
-            )
-            model<-do.call(SuperLearner,SuperLearner.arg)
-            return(model)
+            IPCW<-IPCW/Ghat.t
         }
-    })
-    names(models)<-as.character(tvals)
-    models
+    }
+    Y.IPCW<-Y.IPCW*IPCW
+    Y<-numeric(nrow(history))
+    names(Y)<-history%>%pull(.data[[id.var]])
+    Y[names(Y.IPCW)]<-Y.IPCW
+    
+    X<-model.frame(Q.formula,history%>%filter(.data[[id.var]] %in% names(Y))%>%arrange(.data[[id.var]])%>%select(!.data[[id.var]]))
+    
+    if(is.null(obs.weight.var)){
+        obsWeights<-NULL
+    }else{
+        obsWeights<-follow.up.time%>%filter(.data[[id.var]] %in% names(Y))%>%arrange(.data[[id.var]])%>%pull(obs.weight.var)
+        names(obsWeights)<-names(Y)
+    }
+    
+    if(ncol(X)==0){
+        if(is.null(obsWeights)){
+            est<-mean(Y)
+        }else{
+            # message(paste(obs.weight.var,"might not be correctly accounted for in the standard error due to failure fully account for the sampling scheme."))
+            est<-mean(Y*obsWeights)/mean(obsWeights)
+            # est<-mean(Y*obsWeights)
+        }
+        model<-intercept_model(est)
+        return(model)
+    }else{
+        SuperLearner.arg<-c(
+            list(Y=Y,X=X,obsWeights=obsWeights),
+            Q.SuperLearner.control
+        )
+        model<-do.call(SuperLearner,SuperLearner.arg)
+        return(model)
+    }
 }

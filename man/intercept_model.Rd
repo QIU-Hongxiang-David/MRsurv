@@ -4,13 +4,13 @@
 \alias{intercept_model}
 \title{S3 class for predictive models with an intercept only}
 \usage{
-intercept_model(value)
+intercept_model(est)
 }
 \arguments{
-\item{value}{the predicted mean value}
+\item{est}{the predicted mean}
 }
 \value{
-an "\code{intercept_model}" object, essentially a list with element \code{value}.
+an "\code{intercept_model}" object, essentially a list with element \code{est}.
 }
 \description{
 S3 class for predictive models with an intercept only

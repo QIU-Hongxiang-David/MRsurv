@@ -73,7 +73,7 @@ admin.censor<-function(follow.up.time,time.var,event.var,censor.time=Inf){
 }
 
 
-#create k folds of a vector id
+#create k folds of a vector id with roughly balanced events
 create.folds<-function(id,Delta,k){
     id0<-id[Delta==0]
     id1<-id[Delta==1]

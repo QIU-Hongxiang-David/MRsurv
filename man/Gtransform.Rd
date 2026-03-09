@@ -19,7 +19,7 @@ Gtransform(
 
 \item{pred_event_obj}{a \code{pred_surv} object for time to event in the time window of interest}
 
-\item{tvals}{see \code{\link{MRsurv}}. Must be sorted in ascending order and all greater than the smallest time in \code{pred_event_obj}}
+\item{tvals}{see \code{\link{MRsurv}}.}
 
 \item{next.visit.time}{the next visit time. Default is \code{Inf}, corresponding to the last time window}
 
@@ -28,11 +28,9 @@ Gtransform(
 \item{time.var}{see \code{\link{MRsurv}}}
 
 \item{event.var}{see \code{\link{MRsurv}}}
-
-\item{denom.survival.trunc}{see \code{\link{MRsurv}}}
 }
 \value{
-a named matrix of transformations. Each row corresponds to an individual; each column corresponds to a value of \code{tvals}. Row names are elements in \code{follow.up.time$id.var}; column names are values of \code{tvals}.
+a named one-column matrix of transformations used for regression. Each row corresponds to an individual. Row names are elements in \code{follow.up.time$id.var}
 }
 \description{
 Given a \code{pred_surv} object for time to event in a time window, calculates the G-computation transformation in the time window. The transformation is used as the outcome when estimating the conditional survival probability at the next visit time.

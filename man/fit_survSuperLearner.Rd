@@ -15,7 +15,7 @@ fit_survSuperLearner(
   option = list(event.SL.library = c("survSL.coxph", "survSL.weibreg", "survSL.gam",
     "survSL.rfsrc"), cens.SL.library = c("survSL.coxph", "survSL.weibreg", "survSL.gam",
     "survSL.rfsrc")),
-  obs.weight.var,
+  obs.weight.var = NULL,
   ...
 )
 }

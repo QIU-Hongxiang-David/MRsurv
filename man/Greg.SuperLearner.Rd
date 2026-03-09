@@ -14,8 +14,11 @@ Greg.SuperLearner(
   id.var,
   time.var,
   event.var,
+  U.formula = NULL,
   Q.formula = ~.,
-  Q.SuperLearner.control = list(family = gaussian(), SL.library = "SL.lm"),
+  U.SuperLearner.control = list(family = gaussian(), SL.library = "SL.lm"),
+  Q.SuperLearner.control = U.SuperLearner.control,
+  U.folds,
   obs.weight.var = NULL
 )
 }
@@ -38,14 +41,20 @@ Greg.SuperLearner(
 
 \item{event.var}{see \code{\link{MRsurv}}}
 
-\item{Q.formula}{formula to specify covariates being used for estimating P(T > t | T > \code{visit.times[truncation.index]}, covariates available at \code{visit.times[truncation.index]}). Set to include intercept only (\code{~ 0} or \code{~ -1}) for marginal survival probability, which is simply the mean of pseudo-outcomes. Default is \code{~ .}, which includes main effects of all available covariates up to (inclusive) the \code{truncation.time}.}
+\item{U.formula}{see \code{\link{MRsurv}}}
+
+\item{Q.formula}{see \code{\link{MRsurv}}}
+
+\item{U.SuperLearner.control}{see \code{\link{MRsurv}}}
 
 \item{Q.SuperLearner.control}{see \code{\link{MRsurv}}}
+
+\item{U.folds}{a list of vectors of id (identified by variable \code{id.var}) corresponding to each fold for cross-fitting. Set to a list containing one vector for no cross-fitting.}
 
 \item{obs.weight.var}{see \code{\link{MRsurv}}}
 }
 \value{
-a list of \code{\link{mult_stage_survfit}} objects, each corresponding to a value in \code{tvals}
+a \code{SuperLearner} model (conditional probability) or an \code{\link{intercept_IF_model}} object (marginal probability) corresponding to \code{tvals}.
 }
 \description{
 Apply G-computation transformation on fitted survival and censoring probabilities in each time window and estimate P(T > t | T > truncation time, covariates available at truncation time) with \code{\link[SuperLearner:SuperLearner]{SuperLearner::SuperLearner}}.

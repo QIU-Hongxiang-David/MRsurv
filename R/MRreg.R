@@ -4,13 +4,13 @@
 #' Given a `pred_event_censor` object in a time window, calculates the doubly robust transformation in the time window. The transformation is used as the outcome when estimating the conditional survival probability at the next visit time.
 #' @param follow.up.time see \code{\link{MRsurv}}
 #' @param pred_event_censor_obj a `pred_event_censor` object in the time window of interest
-#' @param tvals see \code{\link{MRsurv}}. Must be sorted in ascending order and all greater than the smallest time in `pred_event_censor_obj`
+#' @param tvals see \code{\link{MRsurv}}. Must be greater than the smallest time in `pred_event_censor_obj`
 #' @param next.visit.time the next visit time. Default is `Inf`, corresponding to the last time window
 #' @param id.var see \code{\link{MRsurv}}
 #' @param time.var see \code{\link{MRsurv}}
 #' @param event.var see \code{\link{MRsurv}}
 #' @param denom.survival.trunc see \code{\link{MRsurv}}
-#' @return a named matrix of transformations used for regression. Each row corresponds to an individual; each column corresponds to a value of `tvals`. Row names are elements in `follow.up.time$id.var`; column names are values of `tvals`.
+#' @return a named one-column matrix of transformations used for regression. Each row corresponds to an individual. Row names are elements in `follow.up.time$id.var`
 #' @section Warning:
 #' This function is designed to be called by other functions such as \code{\link{MRsurv}}, therefore inputs are not thoroughly checked. Incorrect inputs may lead to errors with non-informative messages. The user may call this function if more flexibility is desired.
 #' @export
@@ -60,7 +60,7 @@ DRtransform<-function(follow.up.time,pred_event_censor_obj,tvals,next.visit.time
                 output[i,j]<-output[i,j-1]
             }else{
                 #find Shat at t
-                #k.t is the index of the last event time in event times that is <= current tval (t)
+                #k.t is the index of the last event time in event times that is <= current tvals (t)
                 #will use k.t to get Shat at t
                 #if no event time < t, then set Shat.t to be 1
                 k.t<-find.last.TRUE.index(pred_event_censor_obj$event$time<=tvals.bar[j],noTRUE=0)
@@ -124,16 +124,19 @@ DRtransform<-function(follow.up.time,pred_event_censor_obj,tvals,next.visit.time
 #' @param follow.up.time see \code{\link{MRsurv}}
 #' @param pred_event_censor.list list of `pred_event_censor` objects (see \code{\link{pred_event_censor}}). Each `pred_event_censor` object in the list corresponds to a time window in `visit.times` after `truncation.index` in increasing order.
 #' @param visit.times see \code{\link{MRsurv}}
-#' @param tvals see \code{\link{MRsurv}}. Must be sorted in ascending order.
+#' @param tvals see \code{\link{MRsurv}}
 #' @param truncation.index see \code{\link{MRsurv}}
 #' @param id.var see \code{\link{MRsurv}}
 #' @param time.var see \code{\link{MRsurv}}
 #' @param event.var see \code{\link{MRsurv}}
-#' @param Q.formula formula to specify covariates being used for estimating P(T > t | T > `visit.times[truncation.index]`, covariates available at `visit.times[truncation.index]`). Set to include intercept only (`~ 0` or `~ -1`) for marginal survival probability, which is simply the mean of pseudo-outcomes. Default is `~ .`, which includes main effects of all available covariates up to (inclusive) the `truncation.time`.
+#' @param U.formula see \code{\link{MRsurv}}
+#' @param Q.formula see \code{\link{MRsurv}}
+#' @param U.SuperLearner.control see \code{\link{MRsurv}}
 #' @param Q.SuperLearner.control see \code{\link{MRsurv}}
+#' @param U.folds a list of vectors of id (identified by variable `id.var`) corresponding to each fold for cross-fitting. Set to a list containing one vector for no cross-fitting.
 #' @param obs.weight.var see \code{\link{MRsurv}}
 #' @param denom.survival.trunc see \code{\link{MRsurv}}
-#' @return  a list of \code{\link{mult_stage_survfit}} objects, each corresponding to a value in `tvals`
+#' @return a `SuperLearner` model (conditional probability) or an \code{\link{intercept_IF_model}} object (marginal probability) corresponding to `tvals`.
 #' @section Warning:
 #' This function is designed to be called by other functions such as \code{\link{MRsurv}}, therefore inputs are not thoroughly checked. Incorrect inputs may lead to errors with non-informative messages. The user may call this function if more flexibility is desired.
 #' @section Custom learners:
@@ -149,110 +152,137 @@ MRreg.SuperLearner<-function(
     id.var,
     time.var,
     event.var,
+    U.formula=NULL,
     Q.formula=~.,
-    Q.SuperLearner.control=list(family=gaussian(),SL.library="SL.lm"),
+    U.SuperLearner.control=list(family=gaussian(),SL.library="SL.lm"),
+    Q.SuperLearner.control=U.SuperLearner.control,
+    U.folds,
     obs.weight.var=NULL,
     denom.survival.trunc=1e-3
 ){
     assert_that(denom.survival.trunc>=0,denom.survival.trunc<=1)
     
-    #check if Q.SuperLearner.control is a list and whether it specifies Y or X
-    assert_that(is.list(Q.SuperLearner.control))
-    if(any(c("Y","X","obsWeight") %in% names(Q.SuperLearner.control))){
-        stop("Q.SuperLearner.control should not not specify Y, X, or obsWeight")
-    }
-    
-    if(!("family" %in% names(Q.SuperLearner.control))){
-        Q.SuperLearner.control$family<-gaussian()
-    }
-    if(is.character(Q.SuperLearner.control$family)){
-        if(Q.SuperLearner.control$family!="gaussian"){
-            stop("Q.SuperLearner.control$family must be gaussian")
-        }
-    }else if(is.function(Q.SuperLearner.control$family)){
-        if(!all.equal(Q.SuperLearner.control$family,gaussian)){
-            stop("Q.SuperLearner.control$family must be gaussian")
-        }
-    }else if(Q.SuperLearner.control$family$family!="gaussian"){
-        stop("Q.SuperLearner.control$family must be gaussian")
-    }
-    
-    if(!("SL.library" %in% names(Q.SuperLearner.control))){
-        stop("Q.SuperLearner.control should specify SL.library")
-    }
-    
-    
-    #K is the last visit.time that needs to be considered
-    K<-find.last.TRUE.index(visit.times<tail(tvals,1))
-    
     index.shift<-truncation.index-1 #shift for the index of pred_event_censor.list
     
-    history<-reduce(covariates[1:truncation.index],.f=function(d1,d2){
-        right_join(d1,d2,by=id.var)
-    })%>%arrange(.data[[id.var]])
-    
-    #stagewise.models is a list of list of models: the outer layer corresponds to time windows; the inner layer corresponds to tvals; a model is NULL if the corresponding t is before the time window
-    stagewise.models<-lapply(truncation.index:K,function(k){
-        if(k<length(visit.times)){
-            pred_event_censor_obj<-truncate_pred_event_censor(pred_event_censor.list[[k-index.shift]],visit.times[k+1])
-        }else{
-            pred_event_censor_obj<-pred_event_censor.list[[k-index.shift]]
-        }
+    models<-lapply(seq_along(tvals),function(i){
+        #K is the last visit.time that needs to be considered
+        K<-find.last.TRUE.index(visit.times<tvals[i])
         
-        if(k==K){
-            next.visit.time<-tail(tvals,1) #only need predictions up to the last tvals
-        }else{
-            next.visit.time<-visit.times[k+1]
-        }
-        
-        models<-list()
-        for(i in seq_along(tvals)){
-            if(tvals[i]<=visit.times[k]){ #no regression for this t
-                models<-c(models,list(NULL))
-            }else if(i>1 && tvals[i-1]>next.visit.time){ #same time window of interest, same regression model as the previous t
-                models<-c(models,models[i-1])
+        for(k in K:truncation.index){
+            if(k<length(visit.times)){
+                pred_event_censor_obj<-truncate_pred_event_censor(pred_event_censor.list[[k-index.shift]],visit.times[k+1])
             }else{
-                Y<-DRtransform(follow.up.time,pred_event_censor_obj,tvals[i],
-                                   next.visit.time=next.visit.time,
-                                   id.var,time.var,event.var,denom.survival.trunc)
-                X<-model.frame(Q.formula,data=history%>%filter(.data[[id.var]] %in% rownames(Y))%>%select(!.data[[id.var]]))
-                
-                if(is.null(obs.weight.var)){
-                    obsWeights<-NULL
+                pred_event_censor_obj<-pred_event_censor.list[[k-index.shift]]
+            }
+            if(k==K){
+                next.visit.time<-tvals[i]
+            }else{
+                next.visit.time<-visit.times[k+1]
+            }
+            
+            history<-reduce(covariates[1:ifelse(k==truncation.index,k,k-1)],.f=function(d1,d2){
+                right_join(d1,d2,by=id.var)
+            })%>%arrange(.data[[id.var]])
+            
+            Y.DR<-DRtransform(follow.up.time,pred_event_censor_obj,tvals[i],
+                              next.visit.time=next.visit.time,
+                              id.var,time.var,event.var,denom.survival.trunc)
+            # Y.DR<-Y.DR[order(rownames(Y.DR)),1]
+            Y.DR<-sort_by(Y.DR[,1],rownames(Y.DR))
+            if(k==K){
+                Y<-Y.DR
+            }else{
+                if(length(U.folds)==1){
+                    U<-as.numeric(predict(model,newdata=history)$pred)
+                    names(U)<-history%>%pull(.data[[id.var]])
                 }else{
-                    obsWeights<-follow.up.time%>%filter(.data[[id.var]] %in% rownames(Y))%>%pull(obs.weight.var)
+                    U.list<-lapply(1:length(U.folds),function(v){
+                        newdata<-history%>%filter(.data[[id.var]] %in% U.folds[[v]])
+                        U<-as.numeric(predict(models[[v]],newdata=newdata)$pred)
+                        names(U)<-newdata%>%pull(.data[[id.var]])
+                        U
+                    })
+                    U<-do.call(c,U.list)
+                    # U<-U[order(names(U))]
+                    U<-sort_by(U,names(U))
                 }
                 
-                Y<-Y[,1]
+                Y1<-numeric(nrow(history))
+                names(Y1)<-history%>%pull(.data[[id.var]])
+                Y1[names(Y)]<-Y-U[names(Y)]
                 
-                if(ncol(X)==0){ #intercept-only model
-                    if(is.null(obsWeights)){
-                        est<-mean(Y)
-                        IF<-Y-est
-                    }else{
-                        warning(paste(obs.weight.var,"might not be correctly accounted for in the standard error due to failure fully account for the sampling scheme."))
-                        est<-mean(Y*obsWeights)/mean(obsWeights)
-                        IF<-Y*obsWeights/mean(obsWeights)-est
-                    }
-                    models<-c(models,list(intercept_IF_model(est,IF)))
+                k.t<-find.last.TRUE.index(pred_event_censor_obj$censor$time<=visit.times[k+1],noTRUE=0)
+                if(k.t==0){
+                    Ghat.t<-1
                 }else{
+                    Ghat.t<-pred_event_censor_obj$censor$surv[,k.t]
+                    # Ghat.t<-Ghat.t[order(names(Ghat.t))]
+                    Ghat.t<-sort_by(Ghat.t,names(Ghat.t))
+                    Ghat.t<-pmax(Ghat.t,denom.survival.trunc)
+                }
+                Y1<-Y1/Ghat.t
+                Y<-Y1+U*Y.DR
+                names(Y)<-names(U)
+            }
+            
+            
+            if(k>truncation.index){
+                form<-U.formula[[k-truncation.index]]
+            }else{
+                form<-Q.formula
+            }
+            train.data<-history%>%filter(.data[[id.var]] %in% names(Y))%>%arrange(.data[[id.var]])
+            X<-model.frame(form,train.data%>%select(!.data[[id.var]]))
+            
+            if(is.null(obs.weight.var)){
+                obsWeights<-NULL
+            }else{
+                obsWeights<-follow.up.time%>%filter(.data[[id.var]] %in% names(Y))%>%arrange(.data[[id.var]])%>%pull(obs.weight.var)
+                names(obsWeights)<-names(Y)
+            }
+            
+            if(k==truncation.index && ncol(X)==0){
+                if(is.null(obsWeights)){
+                    est<-mean(Y)
+                    IF<-Y-est
+                }else{
+                    message(paste(obs.weight.var,"is normalized to have sample mean 1"))
+                    est<-mean(Y*obsWeights)/mean(obsWeights)
+                    IF<-Y*obsWeights/mean(obsWeights)-est
+                    # est<-mean(Y*obsWeights)
+                    # IF<-Y*obsWeights-est
+                }
+                model<-intercept_IF_model(est,IF)
+                return(model)
+            }else{
+                if(k==truncation.index){
                     SuperLearner.arg<-c(
                         list(Y=Y,X=X,obsWeights=obsWeights),
                         Q.SuperLearner.control
                     )
-                    models<-c(models,list(do.call(SuperLearner,SuperLearner.arg)))
+                    model<-do.call(SuperLearner,SuperLearner.arg)
+                    return(model)
+                }else{
+                    if(length(U.folds)==1){
+                        SuperLearner.arg<-c(
+                            list(Y=Y,X=X,obsWeights=obsWeights),
+                            U.SuperLearner.control
+                        )
+                        model<-do.call(SuperLearner,SuperLearner.arg)
+                    }else{
+                        models<-lapply(U.folds,function(fold){
+                            X<-model.frame(form,train.data%>%filter(!(.data[[id.var]] %in% fold))%>%select(!.data[[id.var]]))
+                            SuperLearner.arg<-c(
+                                list(Y=Y[!(names(Y) %in% fold)],X=X,obsWeights=obsWeights[!(names(obsWeights) %in% fold)]),
+                                U.SuperLearner.control
+                            )
+                            do.call(SuperLearner,SuperLearner.arg)
+                        })
+                    }
                 }
             }
         }
-        models
     })
-    
-    #rearrange stagewise.models to a list of mult_stage_survfit objects, each corresponding to a value in tvals
-    lapply(seq_along(tvals),function(i){
-        models<-lapply(stagewise.models,function(x){
-            x[[i]]
-        })
-        models<-models[!sapply(models,is.null)]
-        mult_stage_survfit(covariate.data=history,formula=Q.formula,visit.times=visit.times,tval=tvals[i],truncation.index=truncation.index,models=models)
-    })
+    names(models)<-as.character(tvals)
+    models
 }

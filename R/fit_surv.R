@@ -68,7 +68,7 @@ fit_no_event<-function(data,id.var,...){
 #' @param ... ignored
 #' @return a \code{\link{pred_event_censor}} class containing fitted survival curves for individuals in `data`
 #' @export
-fit_survSuperLearner<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.size=250,option=list(event.SL.library=c("survSL.coxph","survSL.weibreg","survSL.gam","survSL.rfsrc"),cens.SL.library=c("survSL.coxph","survSL.weibreg","survSL.gam","survSL.rfsrc")),obs.weight.var,...){
+fit_survSuperLearner<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.size=250,option=list(event.SL.library=c("survSL.coxph","survSL.weibreg","survSL.gam","survSL.rfsrc"),cens.SL.library=c("survSL.coxph","survSL.weibreg","survSL.gam","survSL.rfsrc")),obs.weight.var=NULL,...){
     .requireNamespace("survSuperLearner")
     
     #check if option is a list and whether it specifies formula and data
@@ -90,7 +90,8 @@ fit_survSuperLearner<-function(formula,data,id.var,time.var,event.var,nfold=2,ti
         time<-data%>%pull(time.var)
         event<-data%>%pull(event.var)
         if(is.null(obs.weight.var)){
-            obsWeights<-NULL
+            # obsWeights<-NULL
+            obsWeights<-1
         }else{
             obsWeights<-data%>%pull(obs.weight.var)
             data<-data%>%select(!.data[[obs.weight.var]])
@@ -704,7 +705,7 @@ fit_coxph<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.siz
     
     if(nfold==1){
         if(is.null(obs.weight.var)){
-            weights<-NULL
+            weights<-rep(1,nrow(data))
         }else{
             weights<-data%>%pull(obs.weight.var)
             data<-data%>%select(!.data[[obs.weight.var]])
@@ -735,7 +736,7 @@ fit_coxph<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.siz
                 surv
             }else{
                 if(is.null(obs.weight.var)){
-                    weights<-NULL
+                    weights<-rep(1,nrow(d))
                 }else{
                     weights<-d%>%pull(obs.weight.var)
                     d<-d%>%select(!.data[[obs.weight.var]])

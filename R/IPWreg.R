@@ -71,7 +71,7 @@ IPCWtransform<-function(follow.up.time,pred_censor_obj,tvals,next.visit.time=Inf
 #' @param Q.SuperLearner.control see \code{\link{MRsurv}}
 #' @param obs.weight.var see \code{\link{MRsurv}}
 #' @param denom.survival.trunc see \code{\link{MRsurv}}
-#' @return a `SuperLearner` model (conditional probability) or an \code{\link{intercept_IF_model}} object (marginal probability) corresponding to `tvals`.
+#' @return a list of `SuperLearner` models (conditional probability) or \code{\link{intercept_IF_model}} objects (marginal probability) corresponding to `tvals`.
 #' @section Warning:
 #' This function is designed to be called by other functions such as \code{\link{MRsurv}}, therefore inputs are not thoroughly checked. Incorrect inputs may lead to errors with non-informative messages. The user may call this function if more flexibility is desired.
 #' @section Custom learners:

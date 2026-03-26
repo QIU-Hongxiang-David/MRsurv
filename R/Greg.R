@@ -60,7 +60,7 @@ Gtransform<-function(follow.up.time,pred_event_obj,tvals,next.visit.time=Inf,id.
 #' @param Q.SuperLearner.control see \code{\link{MRsurv}}
 #' @param U.folds a list of vectors of id (identified by variable `id.var`) corresponding to each fold for cross-fitting. Set to a list containing one vector for no cross-fitting.
 #' @param obs.weight.var see \code{\link{MRsurv}}
-#' @return  a `SuperLearner` model (conditional probability) or an \code{\link{intercept_IF_model}} object (marginal probability) corresponding to `tvals`.
+#' @return a list of `SuperLearner` models (conditional probability) or \code{\link{intercept_IF_model}} objects (marginal probability) corresponding to `tvals`.
 #' @section Warning:
 #' This function is designed to be called by other functions such as \code{\link{MRsurv}}, therefore inputs are not thoroughly checked. Incorrect inputs may lead to errors with non-informative messages. The user may call this function if more flexibility is desired.
 #' @section Custom learners:
@@ -114,12 +114,12 @@ Greg.SuperLearner<-function(
                 Y<-Y.G
             }else{
                 if(length(U.folds)==1){
-                    U<-as.numeric(predict(model,newdata=history)$pred)
+                    U<-as.numeric(predict(model,newdata=history%>%select(!.data[[id.var]]))$pred)
                     names(U)<-history%>%pull(.data[[id.var]])
                 }else{
                     U.list<-lapply(1:length(U.folds),function(v){
                         newdata<-history%>%filter(.data[[id.var]] %in% U.folds[[v]])
-                        U<-as.numeric(predict(models[[v]],newdata=newdata)$pred)
+                        U<-as.numeric(predict(models[[v]],newdata=newdata%>%select(!.data[[id.var]]))$pred)
                         names(U)<-newdata%>%pull(.data[[id.var]])
                         U
                     })

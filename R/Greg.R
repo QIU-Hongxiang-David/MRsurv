@@ -114,12 +114,12 @@ Greg.SuperLearner<-function(
                 Y<-Y.G
             }else{
                 if(length(U.folds)==1){
-                    U<-as.numeric(predict(model,newdata=history%>%select(!.data[[id.var]]))$pred)
+                    U<-as.numeric(predict(model,newdata=history%>%select(!.data[[id.var]]),onlySL=TRUE)$pred)
                     names(U)<-history%>%pull(.data[[id.var]])
                 }else{
                     U.list<-lapply(1:length(U.folds),function(v){
                         newdata<-history%>%filter(.data[[id.var]] %in% U.folds[[v]])
-                        U<-as.numeric(predict(models[[v]],newdata=newdata%>%select(!.data[[id.var]]))$pred)
+                        U<-as.numeric(predict(models[[v]],newdata=newdata%>%select(!.data[[id.var]]),onlySL=TRUE)$pred)
                         names(U)<-newdata%>%pull(.data[[id.var]])
                         U
                     })

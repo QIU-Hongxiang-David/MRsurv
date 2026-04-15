@@ -117,9 +117,9 @@ DRtransform<-function(follow.up.time,pred_event_censor_obj,tvals,next.visit.time
 }
 
 
-#' @title Regression based on multiply robust transformation of fitted survival and censoring probabilities using SuperLearner
+#' @title Regression based on multiply (sequentially) robust transformation of fitted survival and censoring probabilities using SuperLearner
 #' @name MRreg.SuperLearner
-#' @description Apply doubly robust transformation on fitted survival and censoring probabilities in each time window and estimate P(T > t | T > truncation time, covariates available at truncation time) with \code{\link[SuperLearner:SuperLearner]{SuperLearner::SuperLearner}}.
+#' @description Apply sequentially doubly robust transformation on fitted survival and censoring probabilities in each time window and estimate P(T > t | T > tk, covariates available at tk) with \code{\link[SuperLearner:SuperLearner]{SuperLearner::SuperLearner}}.
 #' @param covariates see \code{\link{MRsurv}}
 #' @param follow.up.time see \code{\link{MRsurv}}
 #' @param pred_event_censor.list list of `pred_event_censor` objects (see \code{\link{pred_event_censor}}). Each `pred_event_censor` object in the list corresponds to a time window in `visit.times` after `truncation.index` in increasing order.

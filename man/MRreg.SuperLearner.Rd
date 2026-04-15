@@ -2,7 +2,7 @@
 % Please edit documentation in R/MRreg.R
 \name{MRreg.SuperLearner}
 \alias{MRreg.SuperLearner}
-\title{Regression based on multiply robust transformation of fitted survival and censoring probabilities using SuperLearner}
+\title{Regression based on multiply (sequentially) robust transformation of fitted survival and censoring probabilities using SuperLearner}
 \usage{
 MRreg.SuperLearner(
   covariates,
@@ -57,10 +57,10 @@ MRreg.SuperLearner(
 \item{denom.survival.trunc}{see \code{\link{MRsurv}}}
 }
 \value{
-a \code{SuperLearner} model (conditional probability) or an \code{\link{intercept_IF_model}} object (marginal probability) corresponding to \code{tvals}.
+a list of \code{SuperLearner} models (conditional probability) or \code{\link{intercept_IF_model}} objects (marginal probability) corresponding to \code{tvals}.
 }
 \description{
-Apply doubly robust transformation on fitted survival and censoring probabilities in each time window and estimate P(T > t | T > truncation time, covariates available at truncation time) with \code{\link[SuperLearner:SuperLearner]{SuperLearner::SuperLearner}}.
+Apply sequentially doubly robust transformation on fitted survival and censoring probabilities in each time window and estimate P(T > t | T > tk, covariates available at tk) with \code{\link[SuperLearner:SuperLearner]{SuperLearner::SuperLearner}}.
 }
 \section{Warning}{
 

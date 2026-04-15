@@ -66,7 +66,7 @@ IPCWreg.SuperLearner(
 \value{
 a \code{SuperLearner} model (conditional probability) or an \code{\link{intercept_IF_model}} object (marginal probability) corresponding to \code{tvals}.
 
-a \code{SuperLearner} model (conditional probability) or an \code{\link{intercept_IF_model}} object (marginal probability) corresponding to \code{tvals}.
+a list of \code{SuperLearner} models (conditional probability) or \code{\link{intercept_IF_model}} objects (marginal probability) corresponding to \code{tvals}.
 }
 \description{
 Apply IPCW transformation on fitted survival and censoring probabilities in each time window and estimate P(T > t | T > truncation time, covariates available at truncation time) with \code{\link[SuperLearner:SuperLearner]{SuperLearner::SuperLearner}}.

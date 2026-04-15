@@ -2,7 +2,7 @@
 % Please edit documentation in R/MR_G_IPW_surv.R
 \name{MR_G_IPCW_surv}
 \alias{MR_G_IPCW_surv}
-\title{Estimate (conditional) survival probabilities with all three methods based on multiply robust (MR), G-computation and inverse probability weighting (IPCW) transformations}
+\title{Estimate (conditional) survival probabilities with all three methods based on multiply (sequentially doubly) robust (MR), G-computation and inverse probability weighting (IPCW) transformations}
 \usage{
 MR_G_IPCW_surv(
   covariates,
@@ -91,7 +91,7 @@ MR_G_IPCW_surv(
 a list containing three elements corresponding to MR, G-computation and IPCW respectively, with each element being a list of \code{SuperLearner} models (conditional probability) or \code{\link{intercept_IF_model}} objects (marginal probability) corresponding to \code{tvals}.
 }
 \description{
-Estimate P(T > t | T > truncation time, covariates available at truncation time) for given t, where T is the time to event, using all three methods based on multiply robust (MR), G-computation and inverse probability weighting (IPCW) transformations. Use a user-specified flexible method to fit survival curves of time to event/censoring at each stage and then use \code{\link[SuperLearner:SuperLearner]{SuperLearner::SuperLearner}} to regress pseudo-outcome on covariates in order to estimate P(T > t | T > truncation time, covariates available at truncation time). This function is faster than running \code{\link{MRsurv}}, \code{\link{Gsurv}} and \code{\link{IPCWsurv}} separately as the survival curves are fitted only once.
+Estimate P(T > t | T > truncation time, covariates available at truncation time) for given t, where T is the time to event, using all three methods based on multiply (sequentially doubly) robust (MR), G-computation and inverse probability weighting (IPCW) transformations. Use a user-specified flexible method to fit survival curves of time to event/censoring at each stage and then use \code{\link[SuperLearner:SuperLearner]{SuperLearner::SuperLearner}} to regress pseudo-outcome on covariates in order to estimate P(T > t | T > truncation time, covariates available at truncation time). This function is faster than running \code{\link{MRsurv}}, \code{\link{Gsurv}} and \code{\link{IPCWsurv}} separately as the survival curves are fitted only once.
 }
 \section{Formula arguments}{
 

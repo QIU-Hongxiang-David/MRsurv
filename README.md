@@ -1,6 +1,7 @@
 # MRsurv
 
 R package for multiply robust estimation of survival curve with time-varying covariates.
+In particular, all multiply robust estimators are sequentially doubly robust, a very robust special case of multiple robustness.
 
 To install in R:
 ```{r}

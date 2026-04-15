@@ -2,7 +2,7 @@
 % Please edit documentation in R/MRsurv.R
 \name{MRsurv}
 \alias{MRsurv}
-\title{Estimate (conditional) survival probabilities with multiply robust transformation}
+\title{Estimate (conditional) survival probabilities with multiply (sequentially doubly) robust transformation}
 \usage{
 MRsurv(
   covariates,
@@ -92,7 +92,7 @@ param survSuperLearner.control a returned value from \code{\link{fit_surv_option
 a list of \code{SuperLearner} models (conditional probability) or \code{\link{intercept_IF_model}} objects (marginal probability) corresponding to \code{tvals}.
 }
 \description{
-Estimate P(T > t | T > truncation time, covariates available at truncation time) for given t, where T is the time to event, using multiply robust transformation. Use a user-specified flexible method to fit survival curves of time to event/censoring at each stage and then use \code{\link[SuperLearner:SuperLearner]{SuperLearner::SuperLearner}} to regress pseudo-outcome on covariates in order to estimate P(T > t | T > truncation time, covariates available at truncation time).
+Estimate P(T > t | T > truncation time, covariates available at truncation time) for given t, where T is the time to event, using multiply (sequentially doubly) robust transformation. Sequential double robustness is a very robust sepcial case of multiple robustness. Use a user-specified flexible method to fit survival curves of time to event/censoring at each stage and then use \code{\link[SuperLearner:SuperLearner]{SuperLearner::SuperLearner}} to regress pseudo-outcome on covariates in order to estimate P(T > t | T > truncation time, covariates available at truncation time).
 }
 \section{Formula arguments}{
 

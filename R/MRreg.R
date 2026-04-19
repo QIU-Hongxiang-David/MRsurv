@@ -246,11 +246,9 @@ MRreg.SuperLearner<-function(
                     est<-mean(Y)
                     IF<-Y-est
                 }else{
-                    message(paste(obs.weight.var,"is normalized to have sample mean 1"))
+                    # message(paste(obs.weight.var,"is normalized to have sample mean 1"))
                     est<-mean(Y*obsWeights)/mean(obsWeights)
-                    IF<-Y*obsWeights/mean(obsWeights)-est
-                    # est<-mean(Y*obsWeights)
-                    # IF<-Y*obsWeights-est
+                    IF<-(mean(obsWeights)*obsWeights*Y-mean(Y*obsWeights)*obsWeights)/mean(obsWeights)^2
                 }
                 model<-intercept_IF_model(est,IF)
                 return(model)

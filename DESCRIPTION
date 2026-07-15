@@ -1,6 +1,6 @@
 Package: MRsurv
 Title: Multiply Robust Estimation of Survival Curve with Time-Varying Covariates
-Version: 0.0.1
+Version: 1.0.0
 Authors@R: 
     person(given = "Hongxiang",
            family = "Qiu",

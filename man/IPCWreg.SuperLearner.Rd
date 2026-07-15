@@ -16,7 +16,9 @@ IPCWreg.SuperLearner(
   event.var,
   Q.formula = ~.,
   Q.SuperLearner.control = list(family = gaussian(), SL.library = "SL.lm"),
+  cluster.var = NULL,
   obs.weight.var = NULL,
+  corstr = "independence",
   denom.survival.trunc = 0.001
 )
 
@@ -32,7 +34,9 @@ IPCWreg.SuperLearner(
   event.var,
   Q.formula = ~.,
   Q.SuperLearner.control = list(family = gaussian(), SL.library = "SL.lm"),
+  cluster.var = NULL,
   obs.weight.var = NULL,
+  corstr = "independence",
   denom.survival.trunc = 0.001
 )
 }
@@ -59,7 +63,11 @@ IPCWreg.SuperLearner(
 
 \item{Q.SuperLearner.control}{see \code{\link{MRsurv}}}
 
+\item{cluster.var}{see \code{\link{MRsurv}}. If provided, this variable is used to split samples when using cross-fitting and/or cross-valiation, as well as inference of marginal survival probability.}
+
 \item{obs.weight.var}{see \code{\link{MRsurv}}}
+
+\item{corstr}{see \code{\link{MRsurv}}}
 
 \item{denom.survival.trunc}{see \code{\link{MRsurv}}}
 }

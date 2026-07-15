@@ -73,20 +73,20 @@ admin.censor<-function(follow.up.time,time.var,event.var,censor.time=Inf){
 }
 
 
-#create k folds of a vector id with roughly balanced events
-create.folds<-function(id,Delta,k){
-    id0<-id[Delta==0]
-    id1<-id[Delta==1]
-    
-    order0<-sample.int(length(id0))
-    order1<-sample.int(length(id1))
-    
-    d0<-suppressWarnings(data.frame(cbind(id0[order0],1:k)))[1:length(id0),,drop=FALSE]
-    d1<-suppressWarnings(data.frame(cbind(id1[order1],1:k)))[1:length(id1),,drop=FALSE]
-    d<-rbind(d0,d1)
-    names(d)<-c("id","fold.id")
-    lapply(tapply(d$id,d$fold.id,identity,simplify=FALSE),sort)
-}
+# #create k folds of a vector id with roughly balanced events
+# create.folds<-function(id,Delta,k){
+#     id0<-id[Delta==0]
+#     id1<-id[Delta==1]
+#     
+#     order0<-sample.int(length(id0))
+#     order1<-sample.int(length(id1))
+#     
+#     d0<-suppressWarnings(data.frame(cbind(id0[order0],1:k)))[1:length(id0),,drop=FALSE]
+#     d1<-suppressWarnings(data.frame(cbind(id1[order1],1:k)))[1:length(id1),,drop=FALSE]
+#     d<-rbind(d0,d1)
+#     names(d)<-c("id","fold.id")
+#     lapply(tapply(d$id,d$fold.id,identity,simplify=FALSE),sort)
+# }
 
 #convert a vector to a row matrix and return the input if it is already a matrix
 #essentially a copy of as.matrix.default

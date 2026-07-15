@@ -14,15 +14,20 @@ intercept_model<-function(est){
 #' @title S3 class for predictive models with an intercept only and influence function information
 #' @name intercept_IF_model
 #' @param est the predicted mean
-#' @param IF named vector of influence function in one time window evaluated at each observation. The name corresponds to each observation's id. Used to calculate standard error and confidence interval for MR estimator of a scalar estimand (rather than a function).
+#' @param pseudo.outcome named vector of the pseudo-outcome for observation. The name corresponds to each observation's id. Used in GEE for clustered MR estimator of a scalar estimand (rather than a function).
+#' @param IF named vector of influence function evaluated at each observation. The name corresponds to each observation's id. Used to calculate standard error and confidence interval for MR estimator (with iid data) of a scalar estimand (rather than a function).
+#' @param SE standard error
 #' @return an "`intercept_IF_model`" object, essentially a list with element `est` and `IF`.
 #' @export
-intercept_IF_model<-function(est,IF){
+intercept_IF_model<-function(est,pseudo.outcome,IF,SE){
     assert_that(is.number(est))
-    assert_that(is.vector(IF,mode="numeric"))
-    assert_that(!is.null(names(IF)))
-    SE<-sqrt(mean(IF^2))/sqrt(length(IF))
-    out<-list(est=est,IF=IF,SE=SE)
+    assert_that(is.vector(pseudo.outcome,mode="numeric"))
+    assert_that(!is.null(names(pseudo.outcome)))
+    if(!is.null(IF)){
+        assert_that(is.vector(IF,mode="numeric"))
+        assert_that(!is.null(names(IF)))
+    }
+    out<-list(est=est,pseudo.outcome=pseudo.outcome,IF=IF,SE=SE)
     
     class(out)<-c("intercept_IF_model")
     out

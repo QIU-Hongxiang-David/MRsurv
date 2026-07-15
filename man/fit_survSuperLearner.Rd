@@ -15,6 +15,7 @@ fit_survSuperLearner(
   option = list(event.SL.library = c("survSL.coxph", "survSL.weibreg", "survSL.gam",
     "survSL.rfsrc"), cens.SL.library = c("survSL.coxph", "survSL.weibreg", "survSL.gam",
     "survSL.rfsrc")),
+  cluster.var = NULL,
   obs.weight.var = NULL,
   ...
 )
@@ -35,6 +36,8 @@ fit_survSuperLearner(
 \item{time.grid.size}{size of time grid if more than 1 event times, default to 250}
 
 \item{option}{a list containing optional arguments passed to \code{\link[survSuperLearner:survSuperLearner]{survSuperLearner::survSuperLearner}}. We encourage using a named list. Will be passed to \code{\link[survSuperLearner:survSuperLearner]{survSuperLearner::survSuperLearner}} by running a command like \code{do.call(survSuperLearner, option)}. The user should not specify \code{time}, \code{event}, \code{X}, or \code{newX}. We encourage the user to specify \code{event.SL.library} and \code{cens.SL.library}.}
+
+\item{cluster.var}{see \code{\link{MRsurv}}. If provided, this variable is used to split samples when using cross-fitting and/or cross-valiation.}
 
 \item{obs.weight.var}{see \code{\link{MRsurv}}}
 

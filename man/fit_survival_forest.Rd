@@ -14,6 +14,7 @@ fit_survival_forest(
   time.grid.size = 250,
   oob = TRUE,
   option = list(),
+  cluster.var = NULL,
   obs.weight.var,
   ...
 )
@@ -36,6 +37,8 @@ fit_survival_forest(
 \item{oob}{whether to use out-of-bag (OOB) fitted values from \code{\link[grf:survival_forest]{grf::survival_forest}} when sample splitting is not used (\code{nfold=1}). Default is \code{TRUE}}
 
 \item{option}{a list containing optional arguments passed to \code{\link[grf:survival_forest]{grf::survival_forest}}. We encourage using a named list. Will be passed to \code{\link[grf:survival_forest]{grf::survival_forest}} by running a command like \code{do.call(survival_forest, option)}. The user should not specify \code{X}, \code{Y}, \code{D}, \code{failure.times} and \code{compute.oob.predictions}.}
+
+\item{cluster.var}{see \code{\link{MRsurv}}. If provided, this variable is used to split samples when using cross-fitting and in \code{\link[grf:survival_forest]{grf::survival_forest}}.}
 
 \item{obs.weight.var}{see \code{\link{MRsurv}}}
 

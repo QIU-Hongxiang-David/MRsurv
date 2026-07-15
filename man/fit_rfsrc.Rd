@@ -16,6 +16,7 @@ fit_rfsrc(
   oob = TRUE,
   tune = TRUE,
   tune.option = list(),
+  cluster.var = NULL,
   obs.weight.var,
   ...
 )
@@ -42,6 +43,8 @@ fit_rfsrc(
 \item{tune}{whether to tune \code{mtry} and \code{nodesize}.}
 
 \item{tune.option}{a list containing optional arguments passed to \code{\link[randomForestSRC:tune]{randomForestSRC::tune.rfsrc}} if \code{tune=TRUE}; ignored otherwise. \code{doBest} should not be specified.}
+
+\item{cluster.var}{see \code{\link{MRsurv}}. If provided, this variable is used to split samples when using cross-fitting.}
 
 \item{obs.weight.var}{see \code{\link{MRsurv}}}
 

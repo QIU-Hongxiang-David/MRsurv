@@ -29,7 +29,9 @@ Gsurv(
   U.nfold = 2,
   U.SuperLearner.control = list(family = gaussian(), SL.library = "SL.lm"),
   Q.SuperLearner.control = U.SuperLearner.control,
-  obs.weight.var = NULL
+  cluster.var = NULL,
+  obs.weight.var = NULL,
+  corstr = "independence"
 )
 }
 \arguments{
@@ -65,7 +67,11 @@ Gsurv(
 
 \item{Q.SuperLearner.control}{Similar to \code{U.SuperLearner.control}. When \code{Q.formula} only includes an intercept (\code{~1}, \code{~ 0} or \code{~ -1}), \code{\link[SuperLearner:SuperLearner]{SuperLearner::SuperLearner}} will not be called and the default setting can be used.}
 
+\item{cluster.var}{optional clustering variable name in \code{follow.up.time}. If provided, clustering will be accounted for when estimating nuisance functions and inferring about the marginal survival probability (if the marginal survival probability is of interest). If \code{cluster.var} is not provided or \code{NULL}, data is assumed to be iid.}
+
 \item{obs.weight.var}{optional observation weights variable name in \code{follow.up.time}. If provided, these weights will be passed to each learner, which may or may not make use of them (or make use of them correctly). These weights will be used in the ensemble step to weight the empirical risk function when using \code{"survSuperLearner"} and \code{\link[SuperLearner:SuperLearner]{SuperLearner::SuperLearner}}.}
+
+\item{corstr}{optional working correlation structure passed to \code{\link[geepack:geeglm]{geepack::geeglm}} when estimating marginal survival probabilities with clustered data. Default is \code{"independence"}. See \code{\link[geepack:geeglm]{geepack::geeglm}} for more details.}
 }
 \value{
 a list of \code{SuperLearner} models (conditional probability) or \code{\link{intercept_IF_model}} objects (marginal probability) corresponding to \code{tvals}.
@@ -76,6 +82,8 @@ Estimate P(T > t | T > truncation time, covariates available at truncation time)
 \section{Formula arguments}{
 
 All formulas should have covariates on the right-hand side and no terms on the left-hand side, e.g., \code{~ V1 + V2 + V3}. At each visit time, the corresponding formulas may (and usually should) contain covariates at previous visit times, and must only include available covariates up to (inclusive) that visit time. Interactions, polynomials and splines may be treated differently by different machine learning methods to estimate conditional survival curves.
+
+When a formula contains \code{.} indicating all covariates, the clustering variable (if provided) is also included in \code{.}, so that it is possible to account for cluster-level fixed effects and within-cluster dependence simultaneously. Be sure to remove the clustering variable when only within-cluster dependence needs accounting for. If the clustering variable is included in the formula, cross-fitting should not be used (i.e., set all numbers of folds to be 1), because observations within each cluster will be split into different folds in cross-fitting, and it is generally impossible to evaluate nuisance estimators in the validation fold.
 }
 
 \examples{

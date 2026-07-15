@@ -134,7 +134,9 @@ DRtransform<-function(follow.up.time,pred_event_censor_obj,tvals,next.visit.time
 #' @param U.SuperLearner.control see \code{\link{MRsurv}}
 #' @param Q.SuperLearner.control see \code{\link{MRsurv}}
 #' @param U.folds a list of vectors of id (identified by variable `id.var`) corresponding to each fold for cross-fitting. Set to a list containing one vector for no cross-fitting.
+#' @param cluster.var see \code{\link{MRsurv}}. If provided, this variable is used to split samples when using cross-fitting and/or cross-valiation, as well as inference of marginal survival probability.
 #' @param obs.weight.var see \code{\link{MRsurv}}
+#' @param corstr see \code{\link{MRsurv}}
 #' @param denom.survival.trunc see \code{\link{MRsurv}}
 #' @return a list of `SuperLearner` models (conditional probability) or \code{\link{intercept_IF_model}} objects (marginal probability) corresponding to `tvals`.
 #' @section Warning:
@@ -157,7 +159,9 @@ MRreg.SuperLearner<-function(
     U.SuperLearner.control=list(family=gaussian(),SL.library="SL.lm"),
     Q.SuperLearner.control=U.SuperLearner.control,
     U.folds,
+    cluster.var=NULL,
     obs.weight.var=NULL,
+    corstr="independence",
     denom.survival.trunc=1e-3
 ){
     assert_that(denom.survival.trunc>=0,denom.survival.trunc<=1)
@@ -234,6 +238,13 @@ MRreg.SuperLearner<-function(
             train.data<-history%>%filter(.data[[id.var]] %in% names(Y))%>%arrange(.data[[id.var]])
             X<-model.frame(form,train.data%>%select(!.data[[id.var]]))
             
+            if(is.null(cluster.var)){
+                cluster.id<-NULL
+            }else{
+                cluster.id<-follow.up.time%>%filter(.data[[id.var]] %in% names(Y))%>%arrange(.data[[id.var]])%>%pull(cluster.var)
+                names(cluster.id)<-names(Y)
+            }
+            
             if(is.null(obs.weight.var)){
                 obsWeights<-NULL
             }else{
@@ -242,38 +253,80 @@ MRreg.SuperLearner<-function(
             }
             
             if(k==truncation.index && ncol(X)==0){
-                if(is.null(obsWeights)){
-                    est<-mean(Y)
-                    IF<-Y-est
+                pseudo.outcome<-Y
+                if(is.null(cluster.var)){
+                    if(is.null(obsWeights)){
+                        est<-mean(Y)
+                        IF<-Y-est
+                    }else{
+                        # message(paste(obs.weight.var,"is normalized to have sample mean 1"))
+                        est<-mean(Y*obsWeights)/mean(obsWeights)
+                        IF<-(mean(obsWeights)*obsWeights*Y-mean(Y*obsWeights)*obsWeights)/mean(obsWeights)^2
+                    }
+                    SE<-sqrt(mean(IF^2))/sqrt(length(IF))
                 }else{
-                    # message(paste(obs.weight.var,"is normalized to have sample mean 1"))
-                    est<-mean(Y*obsWeights)/mean(obsWeights)
-                    IF<-(mean(obsWeights)*obsWeights*Y-mean(Y*obsWeights)*obsWeights)/mean(obsWeights)^2
+                    .requireNamespace("geepack")
+                    gee.df<-data.frame(Y=Y,cluster.id=cluster.id)
+                    if(is.null(obsWeights)){
+                        gee.df$weights<-rep(1,length(Y))
+                    }else{
+                        gee.df$weights<-obsWeights
+                    }
+                    gee.df<-gee.df%>%arrange(.data$cluster.id) #sort by cluster so that geeglm identifies clusters correctly
+                    gee<-geepack::geeglm(Y~1,weights=weights,id=cluster.id,family=gaussian(),corstr=corstr,data=gee.df)
+                    est<-as.numeric(coef(gee))
+                    IF<-NULL
+                    SE<-sqrt(vcov(gee)[1,1])
                 }
-                model<-intercept_IF_model(est,IF)
+                
+                model<-intercept_IF_model(est,pseudo.outcome,IF,SE)
                 return(model)
             }else{
                 if(k==truncation.index){
                     SuperLearner.arg<-c(
-                        list(Y=Y,X=X,obsWeights=obsWeights),
+                        list(Y=Y,X=X,id=cluster.id,obsWeights=obsWeights),
                         Q.SuperLearner.control
                     )
+                    if(!is.null(cluster.var)){
+                        if("cvControl" %in% names(SuperLearner.arg) && 
+                           "stratifyCV" %in% names(SuperLearner.arg$cvControl) &&
+                           SuperLearner.arg$cvControl$stratifyCV){
+                            message("Setting stratifyCV=FALSE in SuperLearner::SuperLearner.CV.control due to cluster.var being specified")
+                        }
+                        SuperLearner.arg$cvControl$stratifyCV<-FALSE
+                    }
                     model<-do.call(SuperLearner,SuperLearner.arg)
                     return(model)
                 }else{
                     if(length(U.folds)==1){
                         SuperLearner.arg<-c(
-                            list(Y=Y,X=X,obsWeights=obsWeights),
+                            list(Y=Y,X=X,id=cluster.id,obsWeights=obsWeights),
                             U.SuperLearner.control
                         )
+                        if(!is.null(cluster.var)){
+                            if("cvControl" %in% names(SuperLearner.arg) && 
+                               "stratifyCV" %in% names(SuperLearner.arg$cvControl) &&
+                               SuperLearner.arg$cvControl$stratifyCV){
+                                message("Setting stratifyCV=FALSE in SuperLearner::SuperLearner.CV.control due to cluster.var being specified")
+                            }
+                            SuperLearner.arg$cvControl$stratifyCV<-FALSE
+                        }
                         model<-do.call(SuperLearner,SuperLearner.arg)
                     }else{
                         models<-lapply(U.folds,function(fold){
                             X<-model.frame(form,train.data%>%filter(!(.data[[id.var]] %in% fold))%>%select(!.data[[id.var]]))
                             SuperLearner.arg<-c(
-                                list(Y=Y[!(names(Y) %in% fold)],X=X,obsWeights=obsWeights[!(names(obsWeights) %in% fold)]),
+                                list(Y=Y[!(names(Y) %in% fold)],X=X,id=cluster.id[!(names(cluster.id) %in% fold)],obsWeights=obsWeights[!(names(obsWeights) %in% fold)]),
                                 U.SuperLearner.control
                             )
+                            if(!is.null(cluster.var)){
+                                if("cvControl" %in% names(SuperLearner.arg) && 
+                                   "stratifyCV" %in% names(SuperLearner.arg$cvControl) &&
+                                   SuperLearner.arg$cvControl$stratifyCV){
+                                    message("Setting stratifyCV=FALSE in SuperLearner::SuperLearner.CV.control due to cluster.var being specified")
+                                }
+                                SuperLearner.arg$cvControl$stratifyCV<-FALSE
+                            }
                             do.call(SuperLearner,SuperLearner.arg)
                         })
                     }

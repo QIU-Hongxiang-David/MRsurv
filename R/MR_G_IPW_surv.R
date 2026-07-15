@@ -22,11 +22,15 @@
 #' @param U.nfold number of folds to cross-fit nuisance outcome functions U for MR and G-computation estimators. If set to 1, no cross-fitting is used. Defaults to 2.
 #' @param U.SuperLearner.control a list containing optional arguments passed to \code{\link[SuperLearner:SuperLearner]{SuperLearner::SuperLearner}}. We encourage using a named list. Will be passed to \code{\link[SuperLearner:SuperLearner]{SuperLearner::SuperLearner}} by running a command like `do.call(SuperLearner, U.SuperLearner.control)`. Default is `list(SL.library="SL.lm")`, which uses linear regression. The user should not specify `Y` and `X`, and must specify `SL.library` if default is not used. If `family` is gaussian by default if unspecified, and must be gaussian if specified, with a possibly non-identity link.
 #' @param Q.SuperLearner.control Similar to `U.SuperLearner.control`. When `Q.formula` only includes an intercept (`~1`, `~ 0` or `~ -1`), \code{\link[SuperLearner:SuperLearner]{SuperLearner::SuperLearner}} will not be called and the default setting can be used.
+#' @param cluster.var optional clustering variable name in `follow.up.time`. If provided, clustering will be accounted for when estimating nuisance functions and inferring about the marginal survival probability (if the marginal survival probability is of interest). If `cluster.var` is not provided or `NULL`, data is assumed to be iid.
 #' @param obs.weight.var optional observation weights variable name in `follow.up.time`. If provided, these weights will be passed to each learner, which may or may not make use of them (or make use of them correctly). These weights will be used in the ensemble step to weight the empirical risk function when using `"survSuperLearner"` and \code{\link[SuperLearner:SuperLearner]{SuperLearner::SuperLearner}}.
+#' @param corstr optional working correlation structure passed to \code{\link[geepack:geeglm]{geepack::geeglm}} when estimating marginal survival probabilities with clustered data. Default is `"independence"`. See \code{\link[geepack:geeglm]{geepack::geeglm}} for more details.
 #' @param denom.survival.trunc the numeric truncation value for the denominator. All denominators below `denom.survival.trunc` will be set to `denom.survival.trunc` for numerical stability.
 #' @return a list containing three elements corresponding to MR, G-computation and IPCW respectively, with each element being a list of `SuperLearner` models (conditional probability) or \code{\link{intercept_IF_model}} objects (marginal probability) corresponding to `tvals`.
 #' @section Formula arguments:
 #' All formulas should have covariates on the right-hand side and no terms on the left-hand side, e.g., `~ V1 + V2 + V3`. At each visit time, the corresponding formulas may (and usually should) contain covariates at previous visit times, and must only include available covariates up to (inclusive) that visit time. Interactions, polynomials and splines may be treated differently by different machine learning methods to estimate conditional survival curves.
+#' 
+#' When a formula contains `.` indicating all covariates, the clustering variable (if provided) is also included in `.`, so that it is possible to account for cluster-level fixed effects and within-cluster dependence simultaneously. Be sure to remove the clustering variable when only within-cluster dependence needs accounting for. If the clustering variable is included in the formula, cross-fitting should not be used (i.e., set all numbers of folds to be 1), because observations within each cluster will be split into different folds in cross-fitting, and it is generally impossible to evaluate nuisance estimators in the validation fold.
 #' @examples
 #' \dontrun{
 #' rm(list=ls())
@@ -91,7 +95,9 @@ MR_G_IPCW_surv<-function(
     U.nfold=2,
     U.SuperLearner.control=list(family=gaussian(),SL.library="SL.lm"),
     Q.SuperLearner.control=U.SuperLearner.control,
+    cluster.var=NULL,
     obs.weight.var=NULL,
+    corstr="independence",
     denom.survival.trunc=1e-3
 ){
     assert_that(is.string(id.var))
@@ -131,6 +137,20 @@ MR_G_IPCW_surv<-function(
     }
     if(!has_name(follow.up.time,event.var)){
         stop(paste(event.var,"not present in follow.up.time"))
+    }
+    if(!is.null(cluster.var) && !has_name(follow.up.time,cluster.var)){
+        stop(paste(cluster.var,"not present in follow.up.time"))
+    }
+    if(!is.null(cluster.var)){
+        covariates <- lapply(covariates, function(df) {
+            if(has_name(df,cluster.var)){
+                message(paste0(
+                    "The clustering variable '",cluster.var,"' has been removed from the covariate data frames to prevent collisions during internal joins."
+                ))
+                df<-df%>%select(!.data[[cluster.var]])
+            }
+            df
+        })
     }
     
     #check missing data
@@ -403,7 +423,7 @@ MR_G_IPCW_surv<-function(
                                paste(as.character(event.formula[[k-index.shift]]),collapse=""),
                                collapse=""))
         fit_surv_arg<-c(
-            list(method=event.method,formula=form,data=event.surv.data,id.var=id.var,time.var=time.var,event.var=event.var,obs.weight.var=obs.weight.var),
+            list(method=event.method,formula=form,data=event.surv.data,id.var=id.var,time.var=time.var,event.var=event.var,cluster.var=cluster.var,obs.weight.var=obs.weight.var),
             event.control
         )
         pred_event_obj<-do.call(fit_surv,fit_surv_arg)
@@ -427,7 +447,7 @@ MR_G_IPCW_surv<-function(
                                paste(as.character(censor.formula[[k-index.shift]]),collapse=""),
                                collapse=""))
         fit_surv_arg<-c(
-            list(method=censor.method,formula=form,data=censor.surv.data,id.var=id.var,time.var=time.var,event.var=event.var,obs.weight.var=obs.weight.var),
+            list(method=censor.method,formula=form,data=censor.surv.data,id.var=id.var,time.var=time.var,event.var=event.var,cluster.var=cluster.var,obs.weight.var=obs.weight.var),
             censor.control
         )
         pred_censor_obj<-do.call(fit_surv,fit_surv_arg)
@@ -435,13 +455,14 @@ MR_G_IPCW_surv<-function(
         pred_event_censor(pred_event_obj,pred_censor_obj)
     })
     
-    U.folds<-create.folds(follow.up.time%>%pull(.data[[id.var]]),follow.up.time%>%pull(.data[[event.var]]),U.nfold)
+    # U.folds<-create.folds(follow.up.time%>%pull(.data[[id.var]]),follow.up.time%>%pull(.data[[event.var]]),U.nfold)
+    U.folds<-CVFolds(1:nrow(follow.up.time),id=if(is.null(cluster.var)) NULL else follow.up.time%>%pull(.data[[cluster.var]]),Y=follow.up.time%>%pull(.data[[event.var]]),cvControl=SuperLearner.CV.control(V=U.nfold,stratifyCV=is.null(cluster.var)))%>%lapply(function(x) follow.up.time%>%pull(.data[[id.var]])%>%{.[sort(x)]})
     
     ############################################################################
     # transformations and regression
     ############################################################################
-    MR.output<-MRreg.SuperLearner(covariates,follow.up.time,pred_event_censor.list,visit.times,tvals,truncation.index,id.var,time.var,event.var,U.formula,Q.formula,U.SuperLearner.control,Q.SuperLearner.control,U.folds,obs.weight.var,denom.survival.trunc)
-    G.output<-Greg.SuperLearner(covariates,follow.up.time,lapply(pred_event_censor.list,function(x) x$event),visit.times,tvals,truncation.index,id.var,time.var,event.var,U.formula,Q.formula,U.SuperLearner.control,Q.SuperLearner.control,U.folds,obs.weight.var)
-    IPCW.output<-IPCWreg.SuperLearner(covariates,follow.up.time,lapply(pred_event_censor.list,function(x) x$censor),visit.times,tvals,truncation.index,id.var,time.var,event.var,Q.formula,Q.SuperLearner.control,obs.weight.var,denom.survival.trunc)
+    MR.output<-MRreg.SuperLearner(covariates,follow.up.time,pred_event_censor.list,visit.times,tvals,truncation.index,id.var,time.var,event.var,U.formula,Q.formula,U.SuperLearner.control,Q.SuperLearner.control,U.folds,cluster.var,obs.weight.var,corstr,denom.survival.trunc)
+    G.output<-Greg.SuperLearner(covariates,follow.up.time,lapply(pred_event_censor.list,function(x) x$event),visit.times,tvals,truncation.index,id.var,time.var,event.var,U.formula,Q.formula,U.SuperLearner.control,Q.SuperLearner.control,U.folds,cluster.var,obs.weight.var,corstr)
+    IPCW.output<-IPCWreg.SuperLearner(covariates,follow.up.time,lapply(pred_event_censor.list,function(x) x$censor),visit.times,tvals,truncation.index,id.var,time.var,event.var,Q.formula,Q.SuperLearner.control,cluster.var,obs.weight.var,corstr,denom.survival.trunc)
     list(MR=MR.output,G=G.output,IPCW=IPCW.output)
 }

@@ -59,7 +59,9 @@ Gtransform<-function(follow.up.time,pred_event_obj,tvals,next.visit.time=Inf,id.
 #' @param U.SuperLearner.control see \code{\link{MRsurv}}
 #' @param Q.SuperLearner.control see \code{\link{MRsurv}}
 #' @param U.folds a list of vectors of id (identified by variable `id.var`) corresponding to each fold for cross-fitting. Set to a list containing one vector for no cross-fitting.
+#' @param cluster.var see \code{\link{MRsurv}}. If provided, this variable is used to split samples when using cross-fitting and/or cross-valiation, as well as inference of marginal survival probability.
 #' @param obs.weight.var see \code{\link{MRsurv}}
+#' @param corstr see \code{\link{MRsurv}}
 #' @return a list of `SuperLearner` models (conditional probability) or \code{\link{intercept_IF_model}} objects (marginal probability) corresponding to `tvals`.
 #' @section Warning:
 #' This function is designed to be called by other functions such as \code{\link{MRsurv}}, therefore inputs are not thoroughly checked. Incorrect inputs may lead to errors with non-informative messages. The user may call this function if more flexibility is desired.
@@ -81,7 +83,9 @@ Greg.SuperLearner<-function(
     U.SuperLearner.control=list(family=gaussian(),SL.library="SL.lm"),
     Q.SuperLearner.control=U.SuperLearner.control,
     U.folds,
-    obs.weight.var=NULL
+    cluster.var=NULL,
+    obs.weight.var=NULL,
+    corstr="independence"
 ){
     index.shift<-truncation.index-1 #shift for the index of pred_event.list
     
@@ -141,6 +145,13 @@ Greg.SuperLearner<-function(
             train.data<-history%>%filter(.data[[id.var]] %in% names(Y))%>%arrange(.data[[id.var]])
             X<-model.frame(form,train.data%>%select(!.data[[id.var]]))
             
+            if(is.null(cluster.var)){
+                cluster.id<-NULL
+            }else{
+                cluster.id<-follow.up.time%>%filter(.data[[id.var]] %in% names(Y))%>%arrange(.data[[id.var]])%>%pull(cluster.var)
+                names(cluster.id)<-names(Y)
+            }
+            
             if(is.null(obs.weight.var)){
                 obsWeights<-NULL
             }else{
@@ -149,12 +160,24 @@ Greg.SuperLearner<-function(
             }
             
             if(k==truncation.index && ncol(X)==0){
-                if(is.null(obsWeights)){
-                    est<-mean(Y)
+                if(is.null(cluster.var)){
+                    if(is.null(obsWeights)){
+                        est<-mean(Y)
+                    }else{
+                        # message(paste(obs.weight.var,"might not be correctly accounted for in the standard error due to failure fully account for the sampling scheme."))
+                        est<-mean(Y*obsWeights)/mean(obsWeights)
+                    }
                 }else{
-                    # message(paste(obs.weight.var,"might not be correctly accounted for in the standard error due to failure fully account for the sampling scheme."))
-                    est<-mean(Y*obsWeights)/mean(obsWeights)
-                    # est<-mean(Y*obsWeights)
+                    .requireNamespace("geepack")
+                    gee.df<-data.frame(Y=Y,cluster.id=cluster.id)
+                    if(is.null(obsWeights)){
+                        gee.df$weights<-rep(1,length(Y))
+                    }else{
+                        gee.df$weights<-obsWeights
+                    }
+                    gee.df<-gee.df%>%arrange(.data$cluster.id) #sort by cluster so that geeglm identifies clusters correctly
+                    gee<-geepack::geeglm(Y~1,weights=weights,id=cluster.id,family=gaussian(),corstr=corstr,data=gee.df)
+                    est<-as.numeric(coef(gee))
                 }
                 model<-intercept_model(est)
                 return(model)
@@ -172,6 +195,14 @@ Greg.SuperLearner<-function(
                             list(Y=Y,X=X,obsWeights=obsWeights),
                             U.SuperLearner.control
                         )
+                        if(!is.null(cluster.var)){
+                            if("cvControl" %in% names(SuperLearner.arg) && 
+                               "stratifyCV" %in% names(SuperLearner.arg$cvControl) &&
+                               SuperLearner.arg$cvControl$stratifyCV){
+                                message("Setting stratifyCV=FALSE in SuperLearner::SuperLearner.CV.control due to cluster.var being specified")
+                            }
+                            SuperLearner.arg$cvControl$stratifyCV<-FALSE
+                        }
                         model<-do.call(SuperLearner,SuperLearner.arg)
                     }else{
                         models<-lapply(U.folds,function(fold){
@@ -180,6 +211,14 @@ Greg.SuperLearner<-function(
                                 list(Y=Y[!(names(Y) %in% fold)],X=X,obsWeights=obsWeights[!(names(obsWeights) %in% fold)]),
                                 U.SuperLearner.control
                             )
+                            if(!is.null(cluster.var)){
+                                if("cvControl" %in% names(SuperLearner.arg) && 
+                                   "stratifyCV" %in% names(SuperLearner.arg$cvControl) &&
+                                   SuperLearner.arg$cvControl$stratifyCV){
+                                    message("Setting stratifyCV=FALSE in SuperLearner::SuperLearner.CV.control due to cluster.var being specified")
+                                }
+                                SuperLearner.arg$cvControl$stratifyCV<-FALSE
+                            }
                             do.call(SuperLearner,SuperLearner.arg)
                         })
                     }

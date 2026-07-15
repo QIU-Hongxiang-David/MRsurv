@@ -10,5 +10,10 @@ This package provides functions for multiply (sequentially doubly) robust estima
 \author{
 \strong{Maintainer}: Hongxiang Qiu \email{david940408@gmail.com} (\href{https://orcid.org/0000-0002-5207-1818}{ORCID})
 
+Authors:
+\itemize{
+  \item Hongxiang Qiu \email{david940408@gmail.com} (\href{https://orcid.org/0000-0002-5207-1818}{ORCID})
+}
+
 }
 \keyword{internal}

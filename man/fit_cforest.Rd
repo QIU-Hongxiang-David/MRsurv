@@ -14,6 +14,7 @@ fit_cforest(
   time.grid.size = 250,
   option = list(),
   oob = TRUE,
+  cluster.var = NULL,
   obs.weight.var,
   ...
 )
@@ -36,6 +37,8 @@ fit_cforest(
 \item{option}{a list containing optional arguments passed to \code{\link[party:cforest]{party::cforest}}. We encourage using a named list. Will be passed to \code{\link[party:cforest]{party::cforest}} by running a command like \code{do.call(cforest, option)}. The user should not specify \code{formula} and \code{data}.}
 
 \item{oob}{whether to use out-of-bag (OOB) fitted values from \code{\link[party:cforest]{party::cforest}} when sample splitting is not used (\code{nfold=1})}
+
+\item{cluster.var}{see \code{\link{MRsurv}}. If provided, this variable is used to split samples when using cross-fitting.}
 
 \item{obs.weight.var}{see \code{\link{MRsurv}}}
 

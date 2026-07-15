@@ -19,7 +19,9 @@ Greg.SuperLearner(
   U.SuperLearner.control = list(family = gaussian(), SL.library = "SL.lm"),
   Q.SuperLearner.control = U.SuperLearner.control,
   U.folds,
-  obs.weight.var = NULL
+  cluster.var = NULL,
+  obs.weight.var = NULL,
+  corstr = "independence"
 )
 }
 \arguments{
@@ -51,7 +53,11 @@ Greg.SuperLearner(
 
 \item{U.folds}{a list of vectors of id (identified by variable \code{id.var}) corresponding to each fold for cross-fitting. Set to a list containing one vector for no cross-fitting.}
 
+\item{cluster.var}{see \code{\link{MRsurv}}. If provided, this variable is used to split samples when using cross-fitting and/or cross-valiation, as well as inference of marginal survival probability.}
+
 \item{obs.weight.var}{see \code{\link{MRsurv}}}
+
+\item{corstr}{see \code{\link{MRsurv}}}
 }
 \value{
 a list of \code{SuperLearner} models (conditional probability) or \code{\link{intercept_IF_model}} objects (marginal probability) corresponding to \code{tvals}.

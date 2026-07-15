@@ -13,6 +13,7 @@ fit_deepsurv(
   nfold = 2,
   time.grid.size = 250,
   option = list(),
+  cluster.var = NULL,
   obs.weight.var = NULL,
   ...
 )
@@ -33,6 +34,8 @@ fit_deepsurv(
 \item{time.grid.size}{size of time grid if more than 1 event times, default to 250}
 
 \item{option}{a list containing optional arguments passed to \code{\link[survivalmodels:deepsurv]{survivalmodels::deepsurv}}. We encourage using a named list. Will be passed to \code{\link[survivalmodels:deepsurv]{survivalmodels::deepsurv}} by running a command like \code{do.call(deepsurv, option)}. The user should not specify \code{formula}, \code{data} and \code{reverse}; \code{time_variable}, \code{status_variable}, \code{x}, \code{y} will be ignored.}
+
+\item{cluster.var}{see \code{\link{MRsurv}}. If provided, this variable is used to split samples when using cross-fitting.}
 
 \item{obs.weight.var}{observational weight, a variable to be ignored, especially if \code{.} is used in \code{formula}}
 

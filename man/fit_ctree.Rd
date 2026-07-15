@@ -13,6 +13,7 @@ fit_ctree(
   nfold = 2,
   time.grid.size = 250,
   option = list(),
+  cluster.var = NULL,
   obs.weight.var,
   ...
 )
@@ -33,6 +34,8 @@ fit_ctree(
 \item{time.grid.size}{size of time grid if more than 1 event times, default to 250}
 
 \item{option}{a list containing optional arguments passed to \code{\link[party:ctree]{party::ctree}}. We encourage using a named list. Will be passed to \code{\link[party:ctree]{party::ctree}} by running a command like \code{do.call(ctree, option)}. The user should not specify \code{formula} and \code{data}.}
+
+\item{cluster.var}{see \code{\link{MRsurv}}. If provided, this variable is used to split samples when using cross-fitting.}
 
 \item{obs.weight.var}{see \code{\link{MRsurv}}}
 

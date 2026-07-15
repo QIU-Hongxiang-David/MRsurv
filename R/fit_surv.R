@@ -64,11 +64,12 @@ fit_no_event<-function(data,id.var,...){
 #' @param nfold number of folds used when fitting survival curves with sample splitting. Default is 2. If `nfold=1`, sample is not split.
 #' @param time.grid.size size of time grid if more than 1 event times, default to 250
 #' @param option a list containing optional arguments passed to \code{\link[survSuperLearner:survSuperLearner]{survSuperLearner::survSuperLearner}}. We encourage using a named list. Will be passed to \code{\link[survSuperLearner:survSuperLearner]{survSuperLearner::survSuperLearner}} by running a command like `do.call(survSuperLearner, option)`. The user should not specify `time`, `event`, `X`, or `newX`. We encourage the user to specify `event.SL.library` and `cens.SL.library`.
+#' @param cluster.var see \code{\link{MRsurv}}. If provided, this variable is used to split samples when using cross-fitting and/or cross-valiation.
 #' @param obs.weight.var see \code{\link{MRsurv}}
 #' @param ... ignored
 #' @return a \code{\link{pred_event_censor}} class containing fitted survival curves for individuals in `data`
 #' @export
-fit_survSuperLearner<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.size=250,option=list(event.SL.library=c("survSL.coxph","survSL.weibreg","survSL.gam","survSL.rfsrc"),cens.SL.library=c("survSL.coxph","survSL.weibreg","survSL.gam","survSL.rfsrc")),obs.weight.var=NULL,...){
+fit_survSuperLearner<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.size=250,option=list(event.SL.library=c("survSL.coxph","survSL.weibreg","survSL.gam","survSL.rfsrc"),cens.SL.library=c("survSL.coxph","survSL.weibreg","survSL.gam","survSL.rfsrc")),cluster.var=NULL,obs.weight.var=NULL,...){
     .requireNamespace("survSuperLearner")
     
     #check if option is a list and whether it specifies formula and data
@@ -89,9 +90,13 @@ fit_survSuperLearner<-function(formula,data,id.var,time.var,event.var,nfold=2,ti
     if(nfold==1){
         time<-data%>%pull(time.var)
         event<-data%>%pull(event.var)
+        if(!is.null(cluster.var)){
+            cluster.id<-data%>%pull(cluster.var)
+        }else{
+            cluster.id<-NULL
+        }
         if(is.null(obs.weight.var)){
-            # obsWeights<-NULL
-            obsWeights<-1
+            obsWeights<-NULL
         }else{
             obsWeights<-data%>%pull(obs.weight.var)
             data<-data%>%select(!.data[[obs.weight.var]])
@@ -106,7 +111,13 @@ fit_survSuperLearner<-function(formula,data,id.var,time.var,event.var,nfold=2,ti
         new.times<-sort(unique(time))
         new.times<-seq(min(time),max(time),length.out=time.grid.size) #t grid
         
-        arg<-c(list(time=time,event=event,X=X,newX=newX,new.times=new.times,obsWeights=obsWeights),option)
+        arg<-c(list(time=time,event=event,X=X,newX=newX,new.times=new.times,id=cluster.id,obsWeights=obsWeights),option)
+        if(!is.null(cluster.var)){
+            if("cvControl" %in% names(arg) && "stratifyCV" %in% names(arg$cvControl) && arg$cvControl$stratifyCV){
+                message("Setting stratifyCV=FALSE in survSuperLearner::survSuperLearner.CV.control due to cluster.var being specified")
+            }
+            arg$cvControl$stratifyCV<-FALSE
+        }
         model<-do.call(survSuperLearner::survSuperLearner,arg)
         
         event.pred<-model$event.SL.predict
@@ -124,7 +135,8 @@ fit_survSuperLearner<-function(formula,data,id.var,time.var,event.var,nfold=2,ti
             all.times<-seq(min(all.times),max(all.times),length.out=time.grid.size) #t grid
         }
         
-        folds<-create.folds(pull(data,.data[[id.var]]),pull(data,.data[[event.var]]),nfold)
+        # folds<-create.folds(pull(data,.data[[id.var]]),pull(data,.data[[event.var]]),nfold)
+        folds<-CVFolds(1:nrow(data),id=if(is.null(cluster.var)) NULL else data%>%pull(.data[[cluster.var]]),Y=data%>%pull(.data[[event.var]]),cvControl=SuperLearner.CV.control(V=nfold,stratifyCV=is.null(cluster.var)))%>%lapply(function(x) data%>%pull(.data[[id.var]])%>%{.[sort(x)]})
         
         # pred_event_censor.list
         pred_event.list<-lapply(folds,function(fold){
@@ -133,6 +145,11 @@ fit_survSuperLearner<-function(formula,data,id.var,time.var,event.var,nfold=2,ti
             
             time<-d%>%pull(time.var)
             event<-d%>%pull(event.var)
+            if(!is.null(cluster.var)){
+                cluster.id<-d%>%pull(cluster.var)
+            }else{
+                cluster.id<-NULL
+            }
             if(is.null(obs.weight.var)){
                 obsWeights<-NULL
             }else{
@@ -148,7 +165,13 @@ fit_survSuperLearner<-function(formula,data,id.var,time.var,event.var,nfold=2,ti
                 newX<-model.frame(formula,data=test.d%>%select(!c(.data[[id.var]],.data[[time.var]],.data[[event.var]])))
                 new.times<-all.times
                 
-                arg<-c(list(time=time,event=event,X=X,newX=newX,new.times=new.times,obsWeights=obsWeights),option)
+                arg<-c(list(time=time,event=event,X=X,newX=newX,new.times=new.times,id=cluster.id,obsWeights=obsWeights),option)
+                if(!is.null(cluster.var)){
+                    if("cvControl" %in% names(arg) && "stratifyCV" %in% names(arg$cvControl) && arg$cvControl$stratifyCV){
+                        message("Setting stratifyCV=FALSE in survSuperLearner::survSuperLearner.CV.control due to cluster.var being specified")
+                    }
+                    arg$cvControl$stratifyCV<-FALSE
+                }
                 model<-do.call(survSuperLearner::survSuperLearner,arg)
                 
                 event.pred<-model$event.SL.predict
@@ -197,11 +220,12 @@ fit_survSuperLearner<-function(formula,data,id.var,time.var,event.var,nfold=2,ti
 #' @param oob whether to use out-of-bag (OOB) fitted values from \code{\link[randomForestSRC:rfsrc]{randomForestSRC::rfsrc}} when sample splitting is not used (`nfold=1`)
 #' @param tune whether to tune `mtry` and `nodesize`.
 #' @param tune.option a list containing optional arguments passed to \code{\link[randomForestSRC:tune]{randomForestSRC::tune.rfsrc}} if `tune=TRUE`; ignored otherwise. `doBest` should not be specified.
+#' @param cluster.var see \code{\link{MRsurv}}. If provided, this variable is used to split samples when using cross-fitting.
 #' @param obs.weight.var see \code{\link{MRsurv}}
 #' @param ... ignored
 #' @return a \code{\link{pred_surv}} class containing fitted survival curves for individuals in `data`
 #' @export
-fit_rfsrc<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.size=250,option=list(),oob=TRUE,tune=TRUE,tune.option=list(),obs.weight.var,...){
+fit_rfsrc<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.size=250,option=list(),oob=TRUE,tune=TRUE,tune.option=list(),cluster.var=NULL,obs.weight.var,...){
     .requireNamespace("randomForestSRC")
     
     #check if option is a list and whether it specifies formula and data
@@ -236,7 +260,7 @@ fit_rfsrc<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.siz
         if(tune){
             tune.data<-select(data,!.data[[id.var]])
             if(!is.null(obs.weight.var)){
-                tune.data<-select(data,!.data[[obs.weight.var]])
+                tune.data<-select(tune.data,!.data[[obs.weight.var]])
             }
             tune.arg<-c(
                 list(formula=formula,data=tune.data), #remove id.var to allow for . in formula
@@ -268,7 +292,8 @@ fit_rfsrc<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.siz
         rownames(surv)<-pull(data,.data[[id.var]])
         pred_surv(time=model$time.interest,surv=surv)
     }else{
-        folds<-create.folds(pull(data,.data[[id.var]]),pull(data,.data[[event.var]]),nfold)
+        # folds<-create.folds(pull(data,.data[[id.var]]),pull(data,.data[[event.var]]),nfold)
+        folds<-CVFolds(1:nrow(data),id=if(is.null(cluster.var)) NULL else data%>%pull(.data[[cluster.var]]),Y=data%>%pull(.data[[event.var]]),cvControl=SuperLearner.CV.control(V=nfold,stratifyCV=is.null(cluster.var)))%>%lapply(function(x) data%>%pull(.data[[id.var]])%>%{.[sort(x)]})
         surv.list<-lapply(folds,function(fold){
             d<-data%>%filter(!(.data[[id.var]] %in% .env$fold))
             test.d<-data%>%filter(.data[[id.var]] %in% .env$fold)
@@ -281,7 +306,7 @@ fit_rfsrc<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.siz
                 if(tune){
                     tune.data<-d%>%select(!.data[[id.var]])
                     if(!is.null(obs.weight.var)){
-                        tune.data<-select(d,!.data[[obs.weight.var]])
+                        tune.data<-select(tune.data,!.data[[obs.weight.var]])
                     }
                     tune.arg<-c(
                         list(formula=formula,data=tune.data), #remove id.var to allow for . in formula
@@ -339,11 +364,12 @@ fit_rfsrc<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.siz
 #' @param nfold number of folds used when fitting survival curves with sample splitting. Default is 2. If `nfold=1`, sample is not split.
 #' @param time.grid.size size of time grid if more than 1 event times, default to 250
 #' @param option a list containing optional arguments passed to \code{\link[party:ctree]{party::ctree}}. We encourage using a named list. Will be passed to \code{\link[party:ctree]{party::ctree}} by running a command like `do.call(ctree, option)`. The user should not specify `formula` and `data`.
+#' @param cluster.var see \code{\link{MRsurv}}. If provided, this variable is used to split samples when using cross-fitting.
 #' @param obs.weight.var see \code{\link{MRsurv}}
 #' @param ... ignored
 #' @return a \code{\link{pred_surv}} class containing fitted survival curves for individuals in `data`
 #' @export
-fit_ctree<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.size=250,option=list(),obs.weight.var,...){
+fit_ctree<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.size=250,option=list(),cluster.var=NULL,obs.weight.var,...){
     .requireNamespace("party")
     
     #check if option is a list and whether it specifies formula and data
@@ -393,7 +419,8 @@ fit_ctree<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.siz
         rownames(surv)<-pull(data,.data[[id.var]])
         pred_surv(time=all.times,surv=surv)
     }else{
-        folds<-create.folds(pull(data,.data[[id.var]]),pull(data,.data[[event.var]]),nfold)
+        # folds<-create.folds(pull(data,.data[[id.var]]),pull(data,.data[[event.var]]),nfold)
+        folds<-CVFolds(1:nrow(data),id=if(is.null(cluster.var)) NULL else data%>%pull(.data[[cluster.var]]),Y=data%>%pull(.data[[event.var]]),cvControl=SuperLearner.CV.control(V=nfold,stratifyCV=is.null(cluster.var)))%>%lapply(function(x) data%>%pull(.data[[id.var]])%>%{.[sort(x)]})
         surv.list<-lapply(folds,function(fold){
             d<-data%>%filter(!(.data[[id.var]] %in% .env$fold))
             test.d<-data%>%filter(.data[[id.var]] %in% .env$fold)
@@ -454,11 +481,12 @@ fit_ctree<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.siz
 #' @param nfold number of folds used when fitting survival curves with sample splitting. Default is 2. If `nfold=1`, sample is not split.
 #' @param time.grid.size size of time grid if more than 1 event times, default to 250
 #' @param option a list containing optional arguments passed to \code{\link[rpart:rpart]{rpart::rpart}}. We encourage using a named list. Will be passed to \code{\link[rpart:rpart]{rpart::rpart}} by running a command like `do.call(rpart, option)`. The user should not specify `formula` and `data`.
+#' @param cluster.var see \code{\link{MRsurv}}. If provided, this variable is used to split samples when using cross-fitting.
 #' @param obs.weight.var see \code{\link{MRsurv}}
 #' @param ... ignored
 #' @return a \code{\link{pred_surv}} class containing fitted survival curves for individuals in `data`
 #' @export
-fit_rpart<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.size=250,option=list(),obs.weight.var,...){
+fit_rpart<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.size=250,option=list(),cluster.var=NULL,obs.weight.var,...){
     .requireNamespace("rpart")
     .requireNamespace("party")
     .requireNamespace("partykit")
@@ -506,7 +534,8 @@ fit_rpart<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.siz
         rownames(surv)<-pull(data,.data[[id.var]])
         pred_surv(time=all.times,surv=surv)
     }else{
-        folds<-create.folds(pull(data,.data[[id.var]]),pull(data,.data[[event.var]]),nfold)
+        # folds<-create.folds(pull(data,.data[[id.var]]),pull(data,.data[[event.var]]),nfold)
+        folds<-CVFolds(1:nrow(data),id=if(is.null(cluster.var)) NULL else data%>%pull(.data[[cluster.var]]),Y=data%>%pull(.data[[event.var]]),cvControl=SuperLearner.CV.control(V=nfold,stratifyCV=is.null(cluster.var)))%>%lapply(function(x) data%>%pull(.data[[id.var]])%>%{.[sort(x)]})
         surv.list<-lapply(folds,function(fold){
             d<-data%>%filter(!(.data[[id.var]] %in% .env$fold))
             test.d<-data%>%filter(.data[[id.var]] %in% .env$fold)
@@ -564,11 +593,12 @@ fit_rpart<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.siz
 #' @param time.grid.size size of time grid if more than 1 event times, default to 250
 #' @param option a list containing optional arguments passed to \code{\link[party:cforest]{party::cforest}}. We encourage using a named list. Will be passed to \code{\link[party:cforest]{party::cforest}} by running a command like `do.call(cforest, option)`. The user should not specify `formula` and `data`.
 #' @param oob whether to use out-of-bag (OOB) fitted values from \code{\link[party:cforest]{party::cforest}} when sample splitting is not used (`nfold=1`)
+#' @param cluster.var see \code{\link{MRsurv}}. If provided, this variable is used to split samples when using cross-fitting.
 #' @param obs.weight.var see \code{\link{MRsurv}}
 #' @param ... ignored
 #' @return a \code{\link{pred_surv}} class containing fitted survival curves for individuals in `data`
 #' @export
-fit_cforest<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.size=250,option=list(),oob=TRUE,obs.weight.var,...){
+fit_cforest<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.size=250,option=list(),oob=TRUE,cluster.var=NULL,obs.weight.var,...){
     .requireNamespace("party")
     
     #check if option is a list and whether it specifies formula and data
@@ -617,7 +647,8 @@ fit_cforest<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.s
         rownames(surv)<-pull(data,.data[[id.var]])
         pred_surv(time=all.times,surv=surv)
     }else{
-        folds<-create.folds(pull(data,.data[[id.var]]),pull(data,.data[[event.var]]),nfold)
+        # folds<-create.folds(pull(data,.data[[id.var]]),pull(data,.data[[event.var]]),nfold)
+        folds<-CVFolds(1:nrow(data),id=if(is.null(cluster.var)) NULL else data%>%pull(.data[[cluster.var]]),Y=data%>%pull(.data[[event.var]]),cvControl=SuperLearner.CV.control(V=nfold,stratifyCV=is.null(cluster.var)))%>%lapply(function(x) data%>%pull(.data[[id.var]])%>%{.[sort(x)]})
         surv.list<-lapply(folds,function(fold){
             d<-data%>%filter(!(.data[[id.var]] %in% .env$fold))
             test.d<-data%>%filter(.data[[id.var]] %in% .env$fold)
@@ -675,11 +706,12 @@ fit_cforest<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.s
 #' @param time.grid.size size of time grid if more than 1 event times, default to 250
 #' @param option a list containing optional arguments passed to \code{\link[survival:coxph]{survival::coxph}}. We encourage using a named list. Will be passed to \code{\link[survival:coxph]{survival::coxph}} by running a command like `do.call(coxph, option)`. The user should not specify `formula` and `data`.
 #' @param option a list containing optional arguments passed to \code{\link[survival:coxph]{survival::coxph}}. We encourage using a named list. Will be passed to \code{\link[survival:coxph]{survival::coxph}} by running a command like `do.call(coxph, option)`. The user should not specify `formula` and `data`.
+#' @param cluster.var see \code{\link{MRsurv}}. If provided, this variable is used to split samples when using cross-fitting.
 #' @param obs.weight.var see \code{\link{MRsurv}}
 #' @param ... ignored
 #' @return a \code{\link{pred_surv}} class containing fitted survival curves for individuals in `data`
 #' @export
-fit_coxph<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.size=250,option=list(),obs.weight.var,...){
+fit_coxph<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.size=250,option=list(),cluster.var=NULL,obs.weight.var,...){
     .require("survival")
     # .requireNamespace("pec")
     
@@ -725,7 +757,8 @@ fit_coxph<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.siz
         rownames(surv)<-pull(data,.data[[id.var]])
         pred_surv(time=all.times,surv=surv)
     }else{
-        folds<-create.folds(pull(data,.data[[id.var]]),pull(data,.data[[event.var]]),nfold)
+        # folds<-create.folds(pull(data,.data[[id.var]]),pull(data,.data[[event.var]]),nfold)
+        folds<-CVFolds(1:nrow(data),id=if(is.null(cluster.var)) NULL else data%>%pull(.data[[cluster.var]]),Y=data%>%pull(.data[[event.var]]),cvControl=SuperLearner.CV.control(V=nfold,stratifyCV=is.null(cluster.var)))%>%lapply(function(x) data%>%pull(.data[[id.var]])%>%{.[sort(x)]})
         surv.list<-lapply(folds,function(fold){
             d<-data%>%filter(!(.data[[id.var]] %in% .env$fold))
             test.d<-data%>%filter(.data[[id.var]] %in% .env$fold)
@@ -785,11 +818,12 @@ fit_coxph<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.siz
 #' @param nfold number of folds used when fitting survival curves with sample splitting. Default is 2. If `nfold=1`, sample is not split.
 #' @param time.grid.size size of time grid if more than 1 event times, default to 250
 #' @param option a list containing optional arguments passed to \code{\link[survivalmodels:coxtime]{survivalmodels::coxtime}}. We encourage using a named list. Will be passed to \code{\link[survivalmodels:coxtime]{survivalmodels::coxtime}} by running a command like `do.call(coxtime, option)`. The user should not specify `formula`, `data` and `reverse`; `time_variable`, `status_variable`, `x`, `y` will be ignored.
+#' @param cluster.var see \code{\link{MRsurv}}. If provided, this variable is used to split samples when using cross-fitting.
 #' @param obs.weight.var observational weight, a variable to be ignored, especially if `.` is used in `formula`
 #' @param ... ignored
 #' @return a \code{\link{pred_surv}} class containing fitted survival curves for individuals in `data`
 #' @export
-fit_coxtime<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.size=250,option=list(),obs.weight.var=NULL,...){
+fit_coxtime<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.size=250,option=list(),cluster.var=NULL,obs.weight.var=NULL,...){
     .requireNamespace("survivalmodels")
     
     #check if option is a list and whether it specifies formula and data
@@ -824,7 +858,8 @@ fit_coxtime<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.s
         colnames(surv)<-NULL
         pred_surv(time=time,surv=surv)
     }else{
-        folds<-create.folds(pull(data,.data[[id.var]]),pull(data,.data[[event.var]]),nfold)
+        # folds<-create.folds(pull(data,.data[[id.var]]),pull(data,.data[[event.var]]),nfold)
+        folds<-CVFolds(1:nrow(data),id=if(is.null(cluster.var)) NULL else data%>%pull(.data[[cluster.var]]),Y=data%>%pull(.data[[event.var]]),cvControl=SuperLearner.CV.control(V=nfold,stratifyCV=is.null(cluster.var)))%>%lapply(function(x) data%>%pull(.data[[id.var]])%>%{.[sort(x)]})
         surv.list<-lapply(folds,function(fold){
             if(data%>%filter(!(.data[[id.var]] %in% .env$fold))%>%pull(.data[[event.var]])%>%{all(.==0)}){
                 surv<-matrix(1,nrow=length(fold),ncol=length(all.times))
@@ -872,11 +907,12 @@ fit_coxtime<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.s
 #' @param nfold number of folds used when fitting survival curves with sample splitting. Default is 2. If `nfold=1`, sample is not split.
 #' @param time.grid.size size of time grid if more than 1 event times, default to 250
 #' @param option a list containing optional arguments passed to \code{\link[survivalmodels:deepsurv]{survivalmodels::deepsurv}}. We encourage using a named list. Will be passed to \code{\link[survivalmodels:deepsurv]{survivalmodels::deepsurv}} by running a command like `do.call(deepsurv, option)`. The user should not specify `formula`, `data` and `reverse`; `time_variable`, `status_variable`, `x`, `y` will be ignored.
+#' @param cluster.var see \code{\link{MRsurv}}. If provided, this variable is used to split samples when using cross-fitting.
 #' @param obs.weight.var observational weight, a variable to be ignored, especially if `.` is used in `formula`
 #' @param ... ignored
 #' @return a \code{\link{pred_surv}} class containing fitted survival curves for individuals in `data`
 #' @export
-fit_deepsurv<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.size=250,option=list(),obs.weight.var=NULL,...){
+fit_deepsurv<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.size=250,option=list(),cluster.var=NULL,obs.weight.var=NULL,...){
     .requireNamespace("survivalmodels")
     
     #check if option is a list and whether it specifies formula and data
@@ -911,7 +947,8 @@ fit_deepsurv<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.
         colnames(surv)<-NULL
         pred_surv(time=time,surv=surv)
     }else{
-        folds<-create.folds(pull(data,.data[[id.var]]),pull(data,.data[[event.var]]),nfold)
+        # folds<-create.folds(pull(data,.data[[id.var]]),pull(data,.data[[event.var]]),nfold)
+        folds<-CVFolds(1:nrow(data),id=if(is.null(cluster.var)) NULL else data%>%pull(.data[[cluster.var]]),Y=data%>%pull(.data[[event.var]]),cvControl=SuperLearner.CV.control(V=nfold,stratifyCV=is.null(cluster.var)))%>%lapply(function(x) data%>%pull(.data[[id.var]])%>%{.[sort(x)]})
         surv.list<-lapply(folds,function(fold){
             if(data%>%filter(!(.data[[id.var]] %in% .env$fold))%>%pull(.data[[event.var]])%>%{all(.==0)}){
                 surv<-matrix(1,nrow=length(fold),ncol=length(all.times))
@@ -961,11 +998,12 @@ fit_deepsurv<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.
 #' @param time.grid.size size of time grid if more than 1 event times, default to 250
 #' @param oob whether to use out-of-bag (OOB) fitted values from \code{\link[grf:survival_forest]{grf::survival_forest}} when sample splitting is not used (`nfold=1`). Default is `TRUE`
 #' @param option a list containing optional arguments passed to \code{\link[grf:survival_forest]{grf::survival_forest}}. We encourage using a named list. Will be passed to \code{\link[grf:survival_forest]{grf::survival_forest}} by running a command like `do.call(survival_forest, option)`. The user should not specify `X`, `Y`, `D`, `failure.times` and `compute.oob.predictions`.
+#' @param cluster.var see \code{\link{MRsurv}}. If provided, this variable is used to split samples when using cross-fitting and in \code{\link[grf:survival_forest]{grf::survival_forest}}.
 #' @param obs.weight.var see \code{\link{MRsurv}}
 #' @param ... ignored
 #' @return a \code{\link{pred_surv}} class containing fitted survival curves for individuals in `data`
 #' @export
-fit_survival_forest<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.size=250,oob=TRUE,option=list(),obs.weight.var,...){
+fit_survival_forest<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.size=250,oob=TRUE,option=list(),cluster.var=NULL,obs.weight.var,...){
     .requireNamespace("grf")
     
     #check if oob is logical
@@ -988,6 +1026,11 @@ fit_survival_forest<-function(formula,data,id.var,time.var,event.var,nfold=2,tim
     if(nfold==1){
         time<-data%>%pull(time.var)
         event<-data%>%pull(event.var)
+        if(!is.null(cluster.var)){
+            cluster.id<-data%>%pull(cluster.var)
+        }else{
+            cluster.id<-NULL
+        }
         if(is.null(obs.weight.var)){
             sample.weights<-NULL
         }else{
@@ -998,7 +1041,7 @@ fit_survival_forest<-function(formula,data,id.var,time.var,event.var,nfold=2,tim
         newX<-X<-model.frame(formula,data=data%>%select(!c(.data[[id.var]],.data[[time.var]],.data[[event.var]])))
         
         option<-c(option,list(compute.oob.predictions=oob))
-        arg<-c(list(X=X,Y=time,D=event,failure.time=all.times,sample.weights=sample.weights),option)
+        arg<-c(list(X=X,Y=time,D=event,failure.time=all.times,sample.weights=sample.weights,clusters=cluster.id),option)
         model<-do.call(grf::survival_forest,arg)
         
         s.pred<-predict(model,newdata=newX)
@@ -1008,7 +1051,8 @@ fit_survival_forest<-function(formula,data,id.var,time.var,event.var,nfold=2,tim
         colnames(surv)<-NULL
         pred_surv(time=time,surv=surv)
     }else{
-        folds<-create.folds(pull(data,.data[[id.var]]),pull(data,.data[[event.var]]),nfold)
+        # folds<-create.folds(pull(data,.data[[id.var]]),pull(data,.data[[event.var]]),nfold)
+        folds<-CVFolds(1:nrow(data),id=if(is.null(cluster.var)) NULL else data%>%pull(.data[[cluster.var]]),Y=data%>%pull(.data[[event.var]]),cvControl=SuperLearner.CV.control(V=nfold,stratifyCV=is.null(cluster.var)))%>%lapply(function(x) data%>%pull(.data[[id.var]])%>%{.[sort(x)]})
         surv.list<-lapply(folds,function(fold){
             d<-data%>%filter(!(.data[[id.var]] %in% .env$fold))
             test.d<-data%>%filter(.data[[id.var]] %in% .env$fold)
@@ -1020,6 +1064,11 @@ fit_survival_forest<-function(formula,data,id.var,time.var,event.var,nfold=2,tim
             }else{
                 time<-d%>%pull(time.var)
                 event<-d%>%pull(event.var)
+                if(!is.null(cluster.var)){
+                    cluster.id<-d%>%pull(cluster.var)
+                }else{
+                    cluster.id<-NULL
+                }
                 if(is.null(obs.weight.var)){
                     sample.weights<-NULL
                 }else{
@@ -1030,7 +1079,7 @@ fit_survival_forest<-function(formula,data,id.var,time.var,event.var,nfold=2,tim
                 X<-model.frame(formula,data=d%>%select(!c(.data[[id.var]],.data[[time.var]],.data[[event.var]])))
                 newX<-model.frame(formula,data=test.d%>%select(!c(.data[[id.var]],.data[[time.var]],.data[[event.var]])))
                 
-                arg<-c(list(X=X,Y=time,D=event,failure.time=all.times,sample.weights=sample.weights),option) #remove id.var to allow for . in formula
+                arg<-c(list(X=X,Y=time,D=event,failure.time=all.times,sample.weights=sample.weights,clusters=cluster.id),option) #remove id.var to allow for . in formula
                 model<-do.call(grf::survival_forest,arg)
                 prediction<-predict(model,newdata=newX)
                 surv<-prediction$predictions

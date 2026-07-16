@@ -137,7 +137,7 @@ IPCWreg.SuperLearner<-function(
     if(is.null(obs.weight.var)){
         obsWeights<-NULL
     }else{
-        obsWeights<-follow.up.time%>%filter(.data[[id.var]] %in% names(Y))%>%arrange(.data[[id.var]])%>%pull(obs.weight.var)
+        obsWeights<-follow.up.time%>%filter(.data[[id.var]] %in% names(Y))%>%arrange(.data[[id.var]])%>%pull(.data[[obs.weight.var]])
         names(obsWeights)<-names(Y)
     }
     

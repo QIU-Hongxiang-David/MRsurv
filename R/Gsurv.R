@@ -326,7 +326,7 @@ Gsurv<-function(
         if(!has_name(follow.up.time,obs.weight.var)){
             stop(paste(obs.weight.var,"not present in follow.up.time"))
         }
-        if(follow.up.time%>%pull(obs.weight.var)%>%{any(is.na(.) | .<0)}){
+        if(follow.up.time%>%pull(.data[[obs.weight.var]])%>%{any(is.na(.) | .<0)}){
             stop(paste(obs.weight.var,"must all be observed and non-negative"))
         }
         # follow.up.time<-follow.up.time%>%mutate("{obs.weight.var}":=.data[[obs.weight.var]]/mean(.data[[obs.weight.var]]))

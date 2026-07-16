@@ -88,17 +88,17 @@ fit_survSuperLearner<-function(formula,data,id.var,time.var,event.var,nfold=2,ti
     # }
     
     if(nfold==1){
-        time<-data%>%pull(time.var)
-        event<-data%>%pull(event.var)
+        time<-data%>%pull(.data[[time.var]])
+        event<-data%>%pull(.data[[event.var]])
         if(!is.null(cluster.var)){
-            cluster.id<-data%>%pull(cluster.var)
+            cluster.id<-data%>%pull(.data[[cluster.var]])
         }else{
             cluster.id<-NULL
         }
         if(is.null(obs.weight.var)){
             obsWeights<-NULL
         }else{
-            obsWeights<-data%>%pull(obs.weight.var)
+            obsWeights<-data%>%pull(.data[[obs.weight.var]])
             data<-data%>%select(!.data[[obs.weight.var]])
         }
         
@@ -121,10 +121,10 @@ fit_survSuperLearner<-function(formula,data,id.var,time.var,event.var,nfold=2,ti
         model<-do.call(survSuperLearner::survSuperLearner,arg)
         
         event.pred<-model$event.SL.predict
-        row.names(event.pred)<-data%>%pull(id.var)
+        row.names(event.pred)<-data%>%pull(.data[[id.var]])
         
         # censor.pred<-model$cens.SL.predict
-        # row.names(censor.pred)<-data%>%pull(id.var)
+        # row.names(censor.pred)<-data%>%pull(.data[[id.var]])
         # pred_event_censor(pred_surv(time=new.times,surv=event.pred),
         #                   pred_surv(time=new.times,surv=censor.pred))
         pred_surv(time=new.times,surv=event.pred)
@@ -143,17 +143,17 @@ fit_survSuperLearner<-function(formula,data,id.var,time.var,event.var,nfold=2,ti
             d<-data%>%filter(!(.data[[id.var]] %in% .env$fold))
             test.d<-data%>%filter(.data[[id.var]] %in% .env$fold)
             
-            time<-d%>%pull(time.var)
-            event<-d%>%pull(event.var)
+            time<-d%>%pull(.data[[time.var]])
+            event<-d%>%pull(.data[[event.var]])
             if(!is.null(cluster.var)){
-                cluster.id<-d%>%pull(cluster.var)
+                cluster.id<-d%>%pull(.data[[cluster.var]])
             }else{
                 cluster.id<-NULL
             }
             if(is.null(obs.weight.var)){
                 obsWeights<-NULL
             }else{
-                obsWeights<-d%>%pull(obs.weight.var)
+                obsWeights<-d%>%pull(.data[[obs.weight.var]])
                 d<-d%>%select(!.data[[obs.weight.var]])
                 test.d<-test.d%>%select(!.data[[obs.weight.var]])
             }
@@ -272,7 +272,7 @@ fit_rfsrc<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.siz
         if(is.null(obs.weight.var)){
             case.wt<-NULL
         }else{
-            case.wt<-data%>%pull(obs.weight.var)
+            case.wt<-data%>%pull(.data[[obs.weight.var]])
             data<-data%>%select(!.data[[obs.weight.var]])
         }
         
@@ -318,7 +318,7 @@ fit_rfsrc<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.siz
                 if(is.null(obs.weight.var)){
                     case.wt<-NULL
                 }else{
-                    case.wt<-d%>%pull(obs.weight.var)
+                    case.wt<-d%>%pull(.data[[obs.weight.var]])
                     d<-d%>%select(!.data[[obs.weight.var]])
                     test.d<-test.d%>%select(!.data[[obs.weight.var]])
                 }
@@ -392,7 +392,7 @@ fit_ctree<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.siz
         if(is.null(obs.weight.var)){
             weights<-NULL
         }else{
-            weights<-data%>%pull(obs.weight.var)
+            weights<-data%>%pull(.data[[obs.weight.var]])
             data<-data%>%select(!.data[[obs.weight.var]])
             if((max(abs(floor(weights) - weights)) > sqrt(.Machine$double.eps))){
                 warning(paste("weights must be intergers for ctree. Will use rounded",obs.weight.var,"as weights"))
@@ -433,7 +433,7 @@ fit_ctree<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.siz
                 if(is.null(obs.weight.var)){
                     weights<-NULL
                 }else{
-                    weights<-d%>%pull(obs.weight.var)
+                    weights<-d%>%pull(.data[[obs.weight.var]])
                     d<-d%>%select(!.data[[obs.weight.var]])
                     test.d<-test.d%>%select(!.data[[obs.weight.var]])
                     if((max(abs(floor(weights) - weights)) > sqrt(.Machine$double.eps))){
@@ -511,7 +511,7 @@ fit_rpart<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.siz
         if(is.null(obs.weight.var)){
             weights<-NULL
         }else{
-            weights<-data%>%pull(obs.weight.var)
+            weights<-data%>%pull(.data[[obs.weight.var]])
             data<-data%>%select(!.data[[obs.weight.var]])
         }
         
@@ -548,7 +548,7 @@ fit_rpart<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.siz
                 if(is.null(obs.weight.var)){
                     weights<-NULL
                 }else{
-                    weights<-d%>%pull(obs.weight.var)
+                    weights<-d%>%pull(.data[[obs.weight.var]])
                     d<-d%>%select(!.data[[obs.weight.var]])
                     test.d<-test.d%>%select(!.data[[obs.weight.var]])
                 }
@@ -624,7 +624,7 @@ fit_cforest<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.s
         if(is.null(obs.weight.var)){
             weights<-NULL
         }else{
-            weights<-data%>%pull(obs.weight.var)
+            weights<-data%>%pull(.data[[obs.weight.var]])
             data<-data%>%select(!.data[[obs.weight.var]])
         }
         
@@ -661,7 +661,7 @@ fit_cforest<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.s
                 if(is.null(obs.weight.var)){
                     weights<-NULL
                 }else{
-                    weights<-d%>%pull(obs.weight.var)
+                    weights<-d%>%pull(.data[[obs.weight.var]])
                     d<-d%>%select(!.data[[obs.weight.var]])
                     test.d<-test.d%>%select(!.data[[obs.weight.var]])
                 }
@@ -739,7 +739,7 @@ fit_coxph<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.siz
         if(is.null(obs.weight.var)){
             weights<-rep(1,nrow(data))
         }else{
-            weights<-data%>%pull(obs.weight.var)
+            weights<-data%>%pull(.data[[obs.weight.var]])
             data<-data%>%select(!.data[[obs.weight.var]])
         }
         
@@ -771,7 +771,7 @@ fit_coxph<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.siz
                 if(is.null(obs.weight.var)){
                     weights<-rep(1,nrow(d))
                 }else{
-                    weights<-d%>%pull(obs.weight.var)
+                    weights<-d%>%pull(.data[[obs.weight.var]])
                     d<-d%>%select(!.data[[obs.weight.var]])
                     test.d<-test.d%>%select(!.data[[obs.weight.var]])
                 }
@@ -1024,17 +1024,17 @@ fit_survival_forest<-function(formula,data,id.var,time.var,event.var,nfold=2,tim
     }
     
     if(nfold==1){
-        time<-data%>%pull(time.var)
-        event<-data%>%pull(event.var)
+        time<-data%>%pull(.data[[time.var]])
+        event<-data%>%pull(.data[[event.var]])
         if(!is.null(cluster.var)){
-            cluster.id<-data%>%pull(cluster.var)
+            cluster.id<-data%>%pull(.data[[cluster.var]])
         }else{
             cluster.id<-NULL
         }
         if(is.null(obs.weight.var)){
             sample.weights<-NULL
         }else{
-            sample.weights<-data%>%pull(obs.weight.var)
+            sample.weights<-data%>%pull(.data[[obs.weight.var]])
             data<-data%>%select(!.data[[obs.weight.var]])
         }
         
@@ -1062,17 +1062,17 @@ fit_survival_forest<-function(formula,data,id.var,time.var,event.var,nfold=2,tim
                 rownames(surv)<-fold
                 surv
             }else{
-                time<-d%>%pull(time.var)
-                event<-d%>%pull(event.var)
+                time<-d%>%pull(.data[[time.var]])
+                event<-d%>%pull(.data[[event.var]])
                 if(!is.null(cluster.var)){
-                    cluster.id<-d%>%pull(cluster.var)
+                    cluster.id<-d%>%pull(.data[[cluster.var]])
                 }else{
                     cluster.id<-NULL
                 }
                 if(is.null(obs.weight.var)){
                     sample.weights<-NULL
                 }else{
-                    sample.weights<-d%>%pull(obs.weight.var)
+                    sample.weights<-d%>%pull(.data[[obs.weight.var]])
                     d<-d%>%select(!.data[[obs.weight.var]])
                     test.d<-test.d%>%select(!.data[[obs.weight.var]])
                 }

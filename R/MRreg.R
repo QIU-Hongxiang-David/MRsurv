@@ -10,7 +10,7 @@
 #' @param time.var see \code{\link{MRsurv}}
 #' @param event.var see \code{\link{MRsurv}}
 #' @param denom.survival.trunc see \code{\link{MRsurv}}
-#' @return a named one-column matrix of transformations used for regression. Each row corresponds to an individual. Row names are elements in `follow.up.time$id.var`
+#' @return a named one-column matrix of transformations used for regression. Each row corresponds to an individual. Row names are elements in `follow.up.time[[id.var]]`
 #' @section Warning:
 #' This function is designed to be called by other functions such as \code{\link{MRsurv}}, therefore inputs are not thoroughly checked. Incorrect inputs may lead to errors with non-informative messages. The user may call this function if more flexibility is desired.
 #' @export
@@ -193,6 +193,7 @@ MRreg.SuperLearner<-function(
                               id.var,time.var,event.var,denom.survival.trunc)
             # Y.DR<-Y.DR[order(rownames(Y.DR)),1]
             Y.DR<-sort_by(Y.DR[,1],rownames(Y.DR))
+            
             if(k==K){
                 Y<-Y.DR
             }else{
@@ -235,20 +236,20 @@ MRreg.SuperLearner<-function(
             }else{
                 form<-Q.formula
             }
-            train.data<-history%>%filter(.data[[id.var]] %in% names(Y))%>%arrange(.data[[id.var]])
+            train.data<-history%>%filter(.data[[id.var]] %in% names(.env$Y))%>%arrange(.data[[id.var]])
             X<-model.frame(form,train.data%>%select(!.data[[id.var]]))
             
             if(is.null(cluster.var)){
                 cluster.id<-NULL
             }else{
-                cluster.id<-follow.up.time%>%filter(.data[[id.var]] %in% names(Y))%>%arrange(.data[[id.var]])%>%pull(cluster.var)
+                cluster.id<-follow.up.time%>%filter(.data[[id.var]] %in% names(.env$Y))%>%arrange(.data[[id.var]])%>%pull(.data[[cluster.var]])
                 names(cluster.id)<-names(Y)
             }
             
             if(is.null(obs.weight.var)){
                 obsWeights<-NULL
             }else{
-                obsWeights<-follow.up.time%>%filter(.data[[id.var]] %in% names(Y))%>%arrange(.data[[id.var]])%>%pull(obs.weight.var)
+                obsWeights<-follow.up.time%>%filter(.data[[id.var]] %in% names(.env$Y))%>%arrange(.data[[id.var]])%>%pull(.data[[obs.weight.var]])
                 names(obsWeights)<-names(Y)
             }
             

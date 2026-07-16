@@ -46,7 +46,7 @@ IPCWtransform(
 \value{
 a named one-column matrix of transformations used for regression. Each row corresponds to an individual. Row names are elements in \code{follow.up.time$id.var}
 
-a named one-column matrix of transformations used for regression. Each row corresponds to an individual. Row names are elements in \code{follow.up.time$id.var}
+a named one-column matrix of transformations used for regression. Each row corresponds to an individual. Row names are elements in \code{follow.up.time[[id.var]]}
 }
 \description{
 Given a \code{pred_surv} object for time to censoring in a time window, calculates the IPCW transformation in the time window. The transformation is used as the outcome when estimating the conditional survival probability at the next visit time.

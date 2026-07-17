@@ -14,7 +14,7 @@ fit_surv_option<-function(nfold=2,option=list(),time.grid.size=250,oob=TRUE,tune
     assert_that(is.flag(oob))
     assert_that(is.flag(tune))
     assert_that(is.number(lambda),lambda>0)
-    out<-list(nfold=nfold,option=option,oob=oob,tune=tune,tune.option=tune.option,lambda=lambda)
+    out<-list(nfold=nfold,time.grid.size=time.grid.size,option=option,oob=oob,tune=tune,tune.option=tune.option,lambda=lambda)
     class(out)<-"fit_surv_option"
     out
 }

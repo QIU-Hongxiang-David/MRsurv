@@ -53,8 +53,8 @@ DRtransform<-function(follow.up.time,pred_event_censor_obj,tvals,next.visit.time
     colnames(output)<-as.character(tvals)
     for(i in 1:nrow(output)){
         id.matching.data<-follow.up.time%>%filter(.data[[id.var]]==rownames(output)[i])
-        X<-pull(id.matching.data,.data[[time.var]])
-        Delta<-pull(id.matching.data,.data[[event.var]])
+        X<-pull(id.matching.data,all_of(time.var))
+        Delta<-pull(id.matching.data,all_of(event.var))
         for(j in 1:ncol(output)){
             if(j>1 && tvals.bar[j]==tvals.bar[j-1]){
                 output[i,j]<-output[i,j-1]
@@ -198,13 +198,13 @@ MRreg.SuperLearner<-function(
                 Y<-Y.DR
             }else{
                 if(length(U.folds)==1){
-                    U<-as.numeric(predict(model,newdata=history%>%select(!.data[[id.var]]),onlySL=TRUE)$pred)
-                    names(U)<-history%>%pull(.data[[id.var]])
+                    U<-as.numeric(predict(model,newdata=history%>%select(!all_of(id.var)),onlySL=TRUE)$pred)
+                    names(U)<-history%>%pull(all_of(id.var))
                 }else{
                     U.list<-lapply(1:length(U.folds),function(v){
                         newdata<-history%>%filter(.data[[id.var]] %in% U.folds[[v]])
-                        U<-as.numeric(predict(models[[v]],newdata=newdata%>%select(!.data[[id.var]]),onlySL=TRUE)$pred)
-                        names(U)<-newdata%>%pull(.data[[id.var]])
+                        U<-as.numeric(predict(models[[v]],newdata=newdata%>%select(!all_of(id.var)),onlySL=TRUE)$pred)
+                        names(U)<-newdata%>%pull(all_of(id.var))
                         U
                     })
                     U<-do.call(c,U.list)
@@ -213,7 +213,7 @@ MRreg.SuperLearner<-function(
                 }
                 
                 Y1<-numeric(nrow(history))
-                names(Y1)<-history%>%pull(.data[[id.var]])
+                names(Y1)<-history%>%pull(all_of(id.var))
                 Y1[names(Y)]<-Y-U[names(Y)]
                 
                 k.t<-find.last.TRUE.index(pred_event_censor_obj$censor$time<=visit.times[k+1],noTRUE=0)
@@ -237,19 +237,19 @@ MRreg.SuperLearner<-function(
                 form<-Q.formula
             }
             train.data<-history%>%filter(.data[[id.var]] %in% names(.env$Y))%>%arrange(.data[[id.var]])
-            X<-model.frame(form,train.data%>%select(!.data[[id.var]]))
+            X<-model.frame(form,train.data%>%select(!all_of(id.var)))
             
             if(is.null(cluster.var)){
                 cluster.id<-NULL
             }else{
-                cluster.id<-follow.up.time%>%filter(.data[[id.var]] %in% names(.env$Y))%>%arrange(.data[[id.var]])%>%pull(.data[[cluster.var]])
+                cluster.id<-follow.up.time%>%filter(.data[[id.var]] %in% names(.env$Y))%>%arrange(.data[[id.var]])%>%pull(all_of(cluster.var))
                 names(cluster.id)<-names(Y)
             }
             
             if(is.null(obs.weight.var)){
                 obsWeights<-NULL
             }else{
-                obsWeights<-follow.up.time%>%filter(.data[[id.var]] %in% names(.env$Y))%>%arrange(.data[[id.var]])%>%pull(.data[[obs.weight.var]])
+                obsWeights<-follow.up.time%>%filter(.data[[id.var]] %in% names(.env$Y))%>%arrange(.data[[id.var]])%>%pull(all_of(obs.weight.var))
                 names(obsWeights)<-names(Y)
             }
             
@@ -315,7 +315,7 @@ MRreg.SuperLearner<-function(
                         model<-do.call(SuperLearner,SuperLearner.arg)
                     }else{
                         models<-lapply(U.folds,function(fold){
-                            X<-model.frame(form,train.data%>%filter(!(.data[[id.var]] %in% fold))%>%select(!.data[[id.var]]))
+                            X<-model.frame(form,train.data%>%filter(!(.data[[id.var]] %in% fold))%>%select(!all_of(id.var)))
                             SuperLearner.arg<-c(
                                 list(Y=Y[!(names(Y) %in% fold)],X=X,id=cluster.id[!(names(cluster.id) %in% fold)],obsWeights=obsWeights[!(names(obsWeights) %in% fold)]),
                                 U.SuperLearner.control

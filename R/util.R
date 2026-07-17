@@ -64,11 +64,10 @@ admin.censor<-function(follow.up.time,time.var,event.var,censor.time=Inf){
     if(censor.time==Inf){
         follow.up.time
     }else{
+        viewed.censored<-pull(follow.up.time,all_of(time.var))>censor.time
         follow.up.time%>%
-            mutate(viewed.censored=.data[[time.var]]>.env$censor.time,
-                   "{time.var}":=ifelse(.data$viewed.censored,.env$censor.time,.data[[time.var]]),
-                   "{event.var}":=ifelse(.data$viewed.censored,0,.data[[event.var]]))%>%
-            select(!.data$viewed.censored)
+            mutate("{time.var}":=ifelse(.env$viewed.censored,.env$censor.time,.data[[time.var]]),
+                   "{event.var}":=ifelse(.env$viewed.censored,0,.data[[event.var]]))
     }
 }
 

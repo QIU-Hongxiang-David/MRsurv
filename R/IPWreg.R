@@ -23,8 +23,8 @@ IPCWtransform<-function(follow.up.time,pred_censor_obj,tvals,next.visit.time=Inf
     
     for(i in 1:nrow(output)){
         id.matching.data<-follow.up.time%>%filter(.data[[id.var]]==rownames(output)[i])
-        X<-pull(id.matching.data,.data[[time.var]])
-        Delta<-pull(id.matching.data,.data[[event.var]])
+        X<-pull(id.matching.data,all_of(time.var))
+        Delta<-pull(id.matching.data,all_of(event.var))
         for(j in 1:ncol(output)){
             if(j>1 && tvals.bar[j]==tvals.bar[j-1]){
                 output[i,j]<-output[i,j-1]
@@ -134,22 +134,22 @@ IPCWreg.SuperLearner<-function(
         }
         Y.IPCW<-Y.IPCW*IPCW
         Y<-numeric(nrow(history))
-        names(Y)<-history%>%pull(.data[[id.var]])
+        names(Y)<-pull(history,all_of(id.var))
         Y[names(Y.IPCW)]<-Y.IPCW
         
-        X<-model.frame(Q.formula,history%>%filter(.data[[id.var]] %in% names(.env$Y))%>%arrange(.data[[id.var]])%>%select(!.data[[id.var]]))
+        X<-model.frame(Q.formula,history%>%filter(.data[[id.var]] %in% names(.env$Y))%>%arrange(.data[[id.var]])%>%select(!all_of(id.var)))
         
         if(is.null(cluster.var)){
             cluster.id<-NULL
         }else{
-            cluster.id<-follow.up.time%>%filter(.data[[id.var]] %in% names(.env$Y))%>%arrange(.data[[id.var]])%>%pull(.data[[cluster.var]])
+            cluster.id<-follow.up.time%>%filter(.data[[id.var]] %in% names(.env$Y))%>%arrange(.data[[id.var]])%>%pull(all_of(cluster.var))
             names(cluster.id)<-names(Y)
         }
         
         if(is.null(obs.weight.var)){
             obsWeights<-NULL
         }else{
-            obsWeights<-follow.up.time%>%filter(.data[[id.var]] %in% names(.env$Y))%>%arrange(.data[[id.var]])%>%pull(.data[[obs.weight.var]])
+            obsWeights<-follow.up.time%>%filter(.data[[id.var]] %in% names(.env$Y))%>%arrange(.data[[id.var]])%>%pull(all_of(obs.weight.var))
             names(obsWeights)<-names(Y)
         }
         

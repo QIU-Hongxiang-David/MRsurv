@@ -49,7 +49,7 @@ fit_surv<-function(method=c("survSuperLearner","rfsrc","ctree","rpart","cforest"
 
 fit_no_event<-function(data,id.var,...){
     surv<-matrix(1,nrow=nrow(data),ncol=1)
-    rownames(surv)<-pull(data,.data[[id.var]])
+    rownames(surv)<-pull(data,all_of(id.var))
     pred_surv(Inf,surv)
 }
 
@@ -88,25 +88,25 @@ fit_survSuperLearner<-function(formula,data,id.var,time.var,event.var,nfold=2,ti
     # }
     
     if(nfold==1){
-        time<-data%>%pull(.data[[time.var]])
-        event<-data%>%pull(.data[[event.var]])
+        time<-data%>%pull(all_of(time.var))
+        event<-data%>%pull(all_of(event.var))
         if(!is.null(cluster.var)){
-            cluster.id<-data%>%pull(.data[[cluster.var]])
+            cluster.id<-data%>%pull(all_of(cluster.var))
         }else{
             cluster.id<-NULL
         }
         if(is.null(obs.weight.var)){
             obsWeights<-NULL
         }else{
-            obsWeights<-data%>%pull(.data[[obs.weight.var]])
-            data<-data%>%select(!.data[[obs.weight.var]])
+            obsWeights<-data%>%pull(all_of(obs.weight.var))
+            data<-data%>%select(!all_of(obs.weight.var))
         }
         
         if(all(event==0)){
             return(fit_no_event(data,id.var))
         }
         
-        newX<-X<-model.frame(formula,data=data%>%select(!c(.data[[id.var]],.data[[time.var]],.data[[event.var]])))
+        newX<-X<-model.frame(formula,data=data%>%select(!all_of(c(id.var,time.var,event.var))))
         
         new.times<-sort(unique(time))
         new.times<-seq(min(time),max(time),length.out=time.grid.size) #t grid
@@ -121,7 +121,7 @@ fit_survSuperLearner<-function(formula,data,id.var,time.var,event.var,nfold=2,ti
         model<-do.call(survSuperLearner::survSuperLearner,arg)
         
         event.pred<-model$event.SL.predict
-        row.names(event.pred)<-data%>%pull(.data[[id.var]])
+        row.names(event.pred)<-data%>%pull(all_of(id.var))
         
         # censor.pred<-model$cens.SL.predict
         # row.names(censor.pred)<-data%>%pull(.data[[id.var]])
@@ -129,40 +129,40 @@ fit_survSuperLearner<-function(formula,data,id.var,time.var,event.var,nfold=2,ti
         #                   pred_surv(time=new.times,surv=censor.pred))
         pred_surv(time=new.times,surv=event.pred)
     }else{
-        all.times<-data%>%pull(.data[[time.var]])%>%unique%>%sort
+        all.times<-data%>%pull(all_of(time.var))%>%unique%>%sort
         
         if(length(all.times)>1){
             all.times<-seq(min(all.times),max(all.times),length.out=time.grid.size) #t grid
         }
         
         # folds<-create.folds(pull(data,.data[[id.var]]),pull(data,.data[[event.var]]),nfold)
-        folds<-CVFolds(1:nrow(data),id=if(is.null(cluster.var)) NULL else data%>%pull(.data[[cluster.var]]),Y=data%>%pull(.data[[event.var]]),cvControl=SuperLearner.CV.control(V=nfold,stratifyCV=is.null(cluster.var)))%>%lapply(function(x) data%>%pull(.data[[id.var]])%>%{.[sort(x)]})
+        folds<-CVFolds(1:nrow(data),id=if(is.null(cluster.var)) NULL else data%>%pull(all_of(cluster.var)),Y=data%>%pull(all_of(event.var)),cvControl=SuperLearner.CV.control(V=nfold,stratifyCV=is.null(cluster.var)))%>%lapply(function(x) data%>%pull(all_of(id.var))%>%{.[sort(x)]})
         
         # pred_event_censor.list
         pred_event.list<-lapply(folds,function(fold){
             d<-data%>%filter(!(.data[[id.var]] %in% .env$fold))
             test.d<-data%>%filter(.data[[id.var]] %in% .env$fold)
             
-            time<-d%>%pull(.data[[time.var]])
-            event<-d%>%pull(.data[[event.var]])
+            time<-d%>%pull(all_of(time.var))
+            event<-d%>%pull(all_of(event.var))
             if(!is.null(cluster.var)){
-                cluster.id<-d%>%pull(.data[[cluster.var]])
+                cluster.id<-d%>%pull(all_of(cluster.var))
             }else{
                 cluster.id<-NULL
             }
             if(is.null(obs.weight.var)){
                 obsWeights<-NULL
             }else{
-                obsWeights<-d%>%pull(.data[[obs.weight.var]])
-                d<-d%>%select(!.data[[obs.weight.var]])
-                test.d<-test.d%>%select(!.data[[obs.weight.var]])
+                obsWeights<-d%>%pull(all_of(obs.weight.var))
+                d<-d%>%select(!all_of(obs.weight.var))
+                test.d<-test.d%>%select(!all_of(obs.weight.var))
             }
             
             if(all(event==0)){
                 event.pred<-matrix(1,nrow=length(fold),ncol=length(all.times))
             }else{
-                X<-model.frame(formula,data=d%>%select(!c(.data[[id.var]],.data[[time.var]],.data[[event.var]])))
-                newX<-model.frame(formula,data=test.d%>%select(!c(.data[[id.var]],.data[[time.var]],.data[[event.var]])))
+                X<-model.frame(formula,data=d%>%select(!all_of(c(id.var,time.var,event.var))))
+                newX<-model.frame(formula,data=test.d%>%select(!all_of(c(id.var,time.var,event.var))))
                 new.times<-all.times
                 
                 arg<-c(list(time=time,event=event,X=X,newX=newX,new.times=new.times,id=cluster.id,obsWeights=obsWeights),option)
@@ -248,19 +248,19 @@ fit_rfsrc<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.siz
     #check if oob is logical
     assert_that(is.flag(oob))
     
-    if(all(pull(data,.data[[event.var]])==0)){
+    if(all(pull(data,all_of(event.var))==0)){
         return(fit_no_event(data,id.var))
     }
     
-    all.times<-data%>%filter(.data[[event.var]]==1)%>%pull(.data[[time.var]])%>%unique%>%sort
+    all.times<-data%>%filter(.data[[event.var]]==1)%>%pull(all_of(time.var))%>%unique%>%sort
     if(length(all.times)>1){
         all.times<-seq(min(all.times),max(all.times),length.out=time.grid.size) #t grid
     }
     if(nfold==1){
         if(tune){
-            tune.data<-select(data,!.data[[id.var]])
+            tune.data<-select(data,!all_of(id.var))
             if(!is.null(obs.weight.var)){
-                tune.data<-select(tune.data,!.data[[obs.weight.var]])
+                tune.data<-select(tune.data,!all_of(obs.weight.var))
             }
             tune.arg<-c(
                 list(formula=formula,data=tune.data), #remove id.var to allow for . in formula
@@ -272,12 +272,12 @@ fit_rfsrc<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.siz
         if(is.null(obs.weight.var)){
             case.wt<-NULL
         }else{
-            case.wt<-data%>%pull(.data[[obs.weight.var]])
-            data<-data%>%select(!.data[[obs.weight.var]])
+            case.wt<-data%>%pull(all_of(obs.weight.var))
+            data<-data%>%select(!all_of(obs.weight.var))
         }
         
         arg<-c(
-            list(formula=formula,data=select(data,!.data[[id.var]]),case.wt=case.wt), #remove id.var to allow for . in formula
+            list(formula=formula,data=select(data,!all_of(id.var)),case.wt=case.wt), #remove id.var to allow for . in formula
             option
         )
         if(tune){
@@ -289,24 +289,24 @@ fit_rfsrc<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.siz
         }else{
             surv<-model$survival
         }
-        rownames(surv)<-pull(data,.data[[id.var]])
+        rownames(surv)<-pull(data,all_of(id.var))
         pred_surv(time=model$time.interest,surv=surv)
     }else{
-        # folds<-create.folds(pull(data,.data[[id.var]]),pull(data,.data[[event.var]]),nfold)
-        folds<-CVFolds(1:nrow(data),id=if(is.null(cluster.var)) NULL else data%>%pull(.data[[cluster.var]]),Y=data%>%pull(.data[[event.var]]),cvControl=SuperLearner.CV.control(V=nfold,stratifyCV=is.null(cluster.var)))%>%lapply(function(x) data%>%pull(.data[[id.var]])%>%{.[sort(x)]})
+        # folds<-create.folds(pull(data,all_of(id.var)),pull(data,all_of(event.var)),nfold)
+        folds<-CVFolds(1:nrow(data),id=if(is.null(cluster.var)) NULL else data%>%pull(all_of(cluster.var)),Y=data%>%pull(all_of(event.var)),cvControl=SuperLearner.CV.control(V=nfold,stratifyCV=is.null(cluster.var)))%>%lapply(function(x) data%>%pull(all_of(id.var))%>%{.[sort(x)]})
         surv.list<-lapply(folds,function(fold){
             d<-data%>%filter(!(.data[[id.var]] %in% .env$fold))
             test.d<-data%>%filter(.data[[id.var]] %in% .env$fold)
             
-            if(d%>%pull(.data[[event.var]])%>%{all(.==0)}){
+            if(d%>%pull(all_of(event.var))%>%{all(.==0)}){
                 surv<-matrix(1,nrow=length(fold),ncol=length(all.times))
                 rownames(surv)<-fold
                 surv
             }else{
                 if(tune){
-                    tune.data<-d%>%select(!.data[[id.var]])
+                    tune.data<-d%>%select(!all_of(id.var))
                     if(!is.null(obs.weight.var)){
-                        tune.data<-select(tune.data,!.data[[obs.weight.var]])
+                        tune.data<-select(tune.data,!all_of(obs.weight.var))
                     }
                     tune.arg<-c(
                         list(formula=formula,data=tune.data), #remove id.var to allow for . in formula
@@ -318,13 +318,13 @@ fit_rfsrc<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.siz
                 if(is.null(obs.weight.var)){
                     case.wt<-NULL
                 }else{
-                    case.wt<-d%>%pull(.data[[obs.weight.var]])
-                    d<-d%>%select(!.data[[obs.weight.var]])
-                    test.d<-test.d%>%select(!.data[[obs.weight.var]])
+                    case.wt<-d%>%pull(all_of(obs.weight.var))
+                    d<-d%>%select(!all_of(obs.weight.var))
+                    test.d<-test.d%>%select(!all_of(obs.weight.var))
                 }
                 
                 arg<-c(
-                    list(formula=formula,data=d%>%select(!.data[[id.var]]),case.wt=case.wt), #remove id.var to allow for . in formula
+                    list(formula=formula,data=d%>%select(!all_of(id.var)),case.wt=case.wt), #remove id.var to allow for . in formula
                     option
                 )
                 if(tune){
@@ -378,11 +378,11 @@ fit_ctree<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.siz
         stop("option specifies formula or data")
     }
     
-    if(all(pull(data,.data[[event.var]])==0)){
+    if(all(pull(data,all_of(event.var))==0)){
         return(fit_no_event(data,id.var))
     }
     
-    all.times<-data%>%filter(.data[[event.var]]==1)%>%pull(.data[[time.var]])%>%unique%>%sort
+    all.times<-data%>%filter(.data[[event.var]]==1)%>%pull(all_of(time.var))%>%unique%>%sort
     
     if(length(all.times)>1){
         all.times<-seq(min(all.times),max(all.times),length.out=time.grid.size) #t grid
@@ -392,8 +392,8 @@ fit_ctree<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.siz
         if(is.null(obs.weight.var)){
             weights<-NULL
         }else{
-            weights<-data%>%pull(.data[[obs.weight.var]])
-            data<-data%>%select(!.data[[obs.weight.var]])
+            weights<-data%>%pull(all_of(obs.weight.var))
+            data<-data%>%select(!all_of(obs.weight.var))
             if((max(abs(floor(weights) - weights)) > sqrt(.Machine$double.eps))){
                 warning(paste("weights must be intergers for ctree. Will use rounded",obs.weight.var,"as weights"))
                 weights<-round(weights)
@@ -401,7 +401,7 @@ fit_ctree<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.siz
         }
         
         arg<-c(
-            list(formula=formula,data=select(data,!.data[[id.var]]),weights=weights), #remove id.var to allow for . in formula
+            list(formula=formula,data=select(data,!all_of(id.var)),weights=weights), #remove id.var to allow for . in formula
             option
         )
         model<-do.call(party::ctree,arg)
@@ -416,16 +416,16 @@ fit_ctree<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.siz
                 out
             })
         })%>%do.call(what=rbind)
-        rownames(surv)<-pull(data,.data[[id.var]])
+        rownames(surv)<-pull(data,all_of(id.var))
         pred_surv(time=all.times,surv=surv)
     }else{
         # folds<-create.folds(pull(data,.data[[id.var]]),pull(data,.data[[event.var]]),nfold)
-        folds<-CVFolds(1:nrow(data),id=if(is.null(cluster.var)) NULL else data%>%pull(.data[[cluster.var]]),Y=data%>%pull(.data[[event.var]]),cvControl=SuperLearner.CV.control(V=nfold,stratifyCV=is.null(cluster.var)))%>%lapply(function(x) data%>%pull(.data[[id.var]])%>%{.[sort(x)]})
+        folds<-CVFolds(1:nrow(data),id=if(is.null(cluster.var)) NULL else data%>%pull(all_of(cluster.var)),Y=data%>%pull(all_of(event.var)),cvControl=SuperLearner.CV.control(V=nfold,stratifyCV=is.null(cluster.var)))%>%lapply(function(x) data%>%pull(all_of(id.var))%>%{.[sort(x)]})
         surv.list<-lapply(folds,function(fold){
             d<-data%>%filter(!(.data[[id.var]] %in% .env$fold))
             test.d<-data%>%filter(.data[[id.var]] %in% .env$fold)
             
-            if(d%>%pull(.data[[event.var]])%>%{all(.==0)}){
+            if(d%>%pull(all_of(event.var))%>%{all(.==0)}){
                 surv<-matrix(1,nrow=length(fold),ncol=length(all.times))
                 rownames(surv)<-fold
                 surv
@@ -433,9 +433,9 @@ fit_ctree<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.siz
                 if(is.null(obs.weight.var)){
                     weights<-NULL
                 }else{
-                    weights<-d%>%pull(.data[[obs.weight.var]])
-                    d<-d%>%select(!.data[[obs.weight.var]])
-                    test.d<-test.d%>%select(!.data[[obs.weight.var]])
+                    weights<-d%>%pull(all_of(obs.weight.var))
+                    d<-d%>%select(!all_of(obs.weight.var))
+                    test.d<-test.d%>%select(!all_of(obs.weight.var))
                     if((max(abs(floor(weights) - weights)) > sqrt(.Machine$double.eps))){
                         warning(paste("weights must be intergers for ctree. Will use rounded",obs.weight.var,"as weights"))
                         weights<-round(weights)
@@ -443,7 +443,7 @@ fit_ctree<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.siz
                 }
                 
                 arg<-c(
-                    list(formula=formula,data=d%>%select(!.data[[id.var]]),weights=weights), #remove id.var to allow for . in formula
+                    list(formula=formula,data=d%>%select(!all_of(id.var)),weights=weights), #remove id.var to allow for . in formula
                     option
                 )
                 model<-do.call(party::ctree,arg)
@@ -497,11 +497,11 @@ fit_rpart<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.siz
         stop("option specifies formula or data")
     }
     
-    if(all(pull(data,.data[[event.var]])==0)){
+    if(all(pull(data,all_of(event.var))==0)){
         return(fit_no_event(data,id.var))
     }
     
-    all.times<-data%>%filter(.data[[event.var]]==1)%>%pull(.data[[time.var]])%>%unique%>%sort
+    all.times<-data%>%filter(.data[[event.var]]==1)%>%pull(all_of(time.var))%>%unique%>%sort
     
     if(length(all.times)>1){
         all.times<-seq(min(all.times),max(all.times),length.out=time.grid.size) #t grid
@@ -511,12 +511,12 @@ fit_rpart<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.siz
         if(is.null(obs.weight.var)){
             weights<-NULL
         }else{
-            weights<-data%>%pull(.data[[obs.weight.var]])
-            data<-data%>%select(!.data[[obs.weight.var]])
+            weights<-data%>%pull(all_of(obs.weight.var))
+            data<-data%>%select(!all_of(obs.weight.var))
         }
         
         arg<-c(
-            list(formula=formula,data=select(data,!.data[[id.var]]),weights=weights), #remove id.var to allow for . in formula
+            list(formula=formula,data=select(data,!all_of(id.var)),weights=weights), #remove id.var to allow for . in formula
             option
         )
         model<-partykit::as.party(do.call(rpart::rpart,arg))
@@ -531,16 +531,16 @@ fit_rpart<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.siz
                 out
             })
         })%>%do.call(what=rbind)
-        rownames(surv)<-pull(data,.data[[id.var]])
+        rownames(surv)<-pull(data,all_of(id.var))
         pred_surv(time=all.times,surv=surv)
     }else{
         # folds<-create.folds(pull(data,.data[[id.var]]),pull(data,.data[[event.var]]),nfold)
-        folds<-CVFolds(1:nrow(data),id=if(is.null(cluster.var)) NULL else data%>%pull(.data[[cluster.var]]),Y=data%>%pull(.data[[event.var]]),cvControl=SuperLearner.CV.control(V=nfold,stratifyCV=is.null(cluster.var)))%>%lapply(function(x) data%>%pull(.data[[id.var]])%>%{.[sort(x)]})
+        folds<-CVFolds(1:nrow(data),id=if(is.null(cluster.var)) NULL else data%>%pull(all_of(cluster.var)),Y=data%>%pull(all_of(event.var)),cvControl=SuperLearner.CV.control(V=nfold,stratifyCV=is.null(cluster.var)))%>%lapply(function(x) data%>%pull(all_of(id.var))%>%{.[sort(x)]})
         surv.list<-lapply(folds,function(fold){
             d<-data%>%filter(!(.data[[id.var]] %in% .env$fold))
             test.d<-data%>%filter(.data[[id.var]] %in% .env$fold)
             
-            if(d%>%pull(.data[[event.var]])%>%{all(.==0)}){
+            if(d%>%pull(all_of(event.var))%>%{all(.==0)}){
                 surv<-matrix(1,nrow=length(fold),ncol=length(all.times))
                 rownames(surv)<-fold
                 surv
@@ -548,13 +548,13 @@ fit_rpart<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.siz
                 if(is.null(obs.weight.var)){
                     weights<-NULL
                 }else{
-                    weights<-d%>%pull(.data[[obs.weight.var]])
-                    d<-d%>%select(!.data[[obs.weight.var]])
-                    test.d<-test.d%>%select(!.data[[obs.weight.var]])
+                    weights<-d%>%pull(all_of(obs.weight.var))
+                    d<-d%>%select(!all_of(obs.weight.var))
+                    test.d<-test.d%>%select(!all_of(obs.weight.var))
                 }
                 
                 arg<-c(
-                    list(formula=formula,data=d%>%select(!.data[[id.var]]),weights=weights), #remove id.var to allow for . in formula
+                    list(formula=formula,data=d%>%select(!all_of(id.var)),weights=weights), #remove id.var to allow for . in formula
                     option
                 )
                 model<-partykit::as.party(do.call(rpart::rpart,arg))
@@ -610,11 +610,11 @@ fit_cforest<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.s
     #check if oob is logical
     assert_that(is.flag(oob))
     
-    if(all(pull(data,.data[[event.var]])==0)){
+    if(all(pull(data,all_of(event.var))==0)){
         return(fit_no_event(data,id.var))
     }
     
-    all.times<-data%>%filter(.data[[event.var]]==1)%>%pull(.data[[time.var]])%>%unique%>%sort
+    all.times<-data%>%filter(.data[[event.var]]==1)%>%pull(all_of(time.var))%>%unique%>%sort
     
     if(length(all.times)>1){
         all.times<-seq(min(all.times),max(all.times),length.out=time.grid.size) #t grid
@@ -624,12 +624,12 @@ fit_cforest<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.s
         if(is.null(obs.weight.var)){
             weights<-NULL
         }else{
-            weights<-data%>%pull(.data[[obs.weight.var]])
-            data<-data%>%select(!.data[[obs.weight.var]])
+            weights<-data%>%pull(all_of(obs.weight.var))
+            data<-data%>%select(!all_of(obs.weight.var))
         }
         
         arg<-c(
-            list(formula=formula,data=select(data,!.data[[id.var]]),weights=weights), #remove id.var to allow for . in formula
+            list(formula=formula,data=select(data,!all_of(id.var)),weights=weights), #remove id.var to allow for . in formula
             option
         )
         model<-do.call(party::cforest,arg)
@@ -644,16 +644,16 @@ fit_cforest<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.s
                 out
             })
         })%>%do.call(what=rbind)
-        rownames(surv)<-pull(data,.data[[id.var]])
+        rownames(surv)<-pull(data,all_of(id.var))
         pred_surv(time=all.times,surv=surv)
     }else{
         # folds<-create.folds(pull(data,.data[[id.var]]),pull(data,.data[[event.var]]),nfold)
-        folds<-CVFolds(1:nrow(data),id=if(is.null(cluster.var)) NULL else data%>%pull(.data[[cluster.var]]),Y=data%>%pull(.data[[event.var]]),cvControl=SuperLearner.CV.control(V=nfold,stratifyCV=is.null(cluster.var)))%>%lapply(function(x) data%>%pull(.data[[id.var]])%>%{.[sort(x)]})
+        folds<-CVFolds(1:nrow(data),id=if(is.null(cluster.var)) NULL else data%>%pull(all_of(cluster.var)),Y=data%>%pull(all_of(event.var)),cvControl=SuperLearner.CV.control(V=nfold,stratifyCV=is.null(cluster.var)))%>%lapply(function(x) data%>%pull(all_of(id.var))%>%{.[sort(x)]})
         surv.list<-lapply(folds,function(fold){
             d<-data%>%filter(!(.data[[id.var]] %in% .env$fold))
             test.d<-data%>%filter(.data[[id.var]] %in% .env$fold)
             
-            if(d%>%pull(.data[[event.var]])%>%{all(.==0)}){
+            if(d%>%pull(all_of(event.var))%>%{all(.==0)}){
                 surv<-matrix(1,nrow=length(fold),ncol=length(all.times))
                 rownames(surv)<-fold
                 surv
@@ -661,13 +661,13 @@ fit_cforest<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.s
                 if(is.null(obs.weight.var)){
                     weights<-NULL
                 }else{
-                    weights<-d%>%pull(.data[[obs.weight.var]])
-                    d<-d%>%select(!.data[[obs.weight.var]])
-                    test.d<-test.d%>%select(!.data[[obs.weight.var]])
+                    weights<-d%>%pull(all_of(obs.weight.var))
+                    d<-d%>%select(!all_of(obs.weight.var))
+                    test.d<-test.d%>%select(!all_of(obs.weight.var))
                 }
                 
                 arg<-c(
-                    list(formula=formula,data=d%>%select(!.data[[id.var]]),weights=weights), #remove id.var to allow for . in formula
+                    list(formula=formula,data=d%>%select(!all_of(id.var)),weights=weights), #remove id.var to allow for . in formula
                     option
                 )
                 model<-do.call(party::cforest,arg)
@@ -725,11 +725,11 @@ fit_coxph<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.siz
         warning("strata() function seems to be used in the formula. This may lead to an error.")
     }
     
-    if(all(pull(data,.data[[event.var]])==0)){
+    if(all(pull(data,all_of(event.var))==0)){
         return(fit_no_event(data,id.var))
     }
     
-    all.times<-data%>%filter(.data[[event.var]]==1)%>%pull(.data[[time.var]])%>%unique%>%sort
+    all.times<-data%>%filter(.data[[event.var]]==1)%>%pull(all_of(time.var))%>%unique%>%sort
     
     if(length(all.times)>1){
         all.times<-seq(min(all.times),max(all.times),length.out=time.grid.size) #t grid
@@ -739,12 +739,12 @@ fit_coxph<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.siz
         if(is.null(obs.weight.var)){
             weights<-rep(1,nrow(data))
         }else{
-            weights<-data%>%pull(.data[[obs.weight.var]])
-            data<-data%>%select(!.data[[obs.weight.var]])
+            weights<-data%>%pull(all_of(obs.weight.var))
+            data<-data%>%select(!all_of(obs.weight.var))
         }
         
         arg<-c(
-            list(formula=formula,data=select(data,!.data[[id.var]]),weights=weights), #remove id.var to allow for . in formula
+            list(formula=formula,data=select(data,!all_of(id.var)),weights=weights), #remove id.var to allow for . in formula
             option
         )
         cox.model<-do.call(survival::coxph,arg)
@@ -754,16 +754,16 @@ fit_coxph<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.siz
         })%>%do.call(what=cbind)
         # model<-survival::survfit(cox.model,newdata=data)
         # surv<-t(as_matrix_rowvec(model$surv))
-        rownames(surv)<-pull(data,.data[[id.var]])
+        rownames(surv)<-pull(data,all_of(id.var))
         pred_surv(time=all.times,surv=surv)
     }else{
         # folds<-create.folds(pull(data,.data[[id.var]]),pull(data,.data[[event.var]]),nfold)
-        folds<-CVFolds(1:nrow(data),id=if(is.null(cluster.var)) NULL else data%>%pull(.data[[cluster.var]]),Y=data%>%pull(.data[[event.var]]),cvControl=SuperLearner.CV.control(V=nfold,stratifyCV=is.null(cluster.var)))%>%lapply(function(x) data%>%pull(.data[[id.var]])%>%{.[sort(x)]})
+        folds<-CVFolds(1:nrow(data),id=if(is.null(cluster.var)) NULL else data%>%pull(all_of(cluster.var)),Y=data%>%pull(all_of(event.var)),cvControl=SuperLearner.CV.control(V=nfold,stratifyCV=is.null(cluster.var)))%>%lapply(function(x) data%>%pull(all_of(id.var))%>%{.[sort(x)]})
         surv.list<-lapply(folds,function(fold){
             d<-data%>%filter(!(.data[[id.var]] %in% .env$fold))
             test.d<-data%>%filter(.data[[id.var]] %in% .env$fold)
             
-            if(d%>%pull(.data[[event.var]])%>%{all(.==0)}){
+            if(d%>%pull(all_of(event.var))%>%{all(.==0)}){
                 surv<-matrix(1,nrow=length(fold),ncol=length(all.times))
                 rownames(surv)<-fold
                 surv
@@ -771,13 +771,13 @@ fit_coxph<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.siz
                 if(is.null(obs.weight.var)){
                     weights<-rep(1,nrow(d))
                 }else{
-                    weights<-d%>%pull(.data[[obs.weight.var]])
-                    d<-d%>%select(!.data[[obs.weight.var]])
-                    test.d<-test.d%>%select(!.data[[obs.weight.var]])
+                    weights<-d%>%pull(all_of(obs.weight.var))
+                    d<-d%>%select(!all_of(obs.weight.var))
+                    test.d<-test.d%>%select(!all_of(obs.weight.var))
                 }
                 
                 arg<-c(
-                    list(formula=formula,data=d%>%select(!.data[[id.var]]),weights=weights), #remove id.var to allow for . in formula
+                    list(formula=formula,data=d%>%select(!all_of(id.var)),weights=weights), #remove id.var to allow for . in formula
                     option
                 )
                 cox.model<-do.call(survival::coxph,arg)
@@ -832,42 +832,42 @@ fit_coxtime<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.s
         stop("option specifies formula, data or reverse")
     }
     
-    if(all(pull(data,.data[[event.var]])==0)){
+    if(all(pull(data,all_of(event.var))==0)){
         return(fit_no_event(data,id.var))
     }
     
-    all.times<-data%>%filter(.data[[event.var]]==1)%>%pull(.data[[time.var]])%>%unique%>%sort
+    all.times<-data%>%filter(.data[[event.var]]==1)%>%pull(all_of(time.var))%>%unique%>%sort
     
     if(length(all.times)>1){
         all.times<-seq(min(all.times),max(all.times),length.out=time.grid.size) #t grid
     }
     
     if(!is.null(obs.weight.var)){
-        data<-data%>%select(!.data[[obs.weight.var]])
+        data<-data%>%select(!all_of(obs.weight.var))
     }
     
     if(nfold==1){
         arg<-c(
-            list(formula=formula,data=select(data,!.data[[id.var]])), #remove id.var to allow for . in formula
+            list(formula=formula,data=select(data,!all_of(id.var))), #remove id.var to allow for . in formula
             option
         )
         model<-do.call(survivalmodels::coxtime,arg)
         surv<-predict(model,type="survival",distr6=FALSE)
         time<-as.numeric(colnames(surv))
-        rownames(surv)<-pull(data,.data[[id.var]])
+        rownames(surv)<-pull(data,all_of(id.var))
         colnames(surv)<-NULL
         pred_surv(time=time,surv=surv)
     }else{
         # folds<-create.folds(pull(data,.data[[id.var]]),pull(data,.data[[event.var]]),nfold)
-        folds<-CVFolds(1:nrow(data),id=if(is.null(cluster.var)) NULL else data%>%pull(.data[[cluster.var]]),Y=data%>%pull(.data[[event.var]]),cvControl=SuperLearner.CV.control(V=nfold,stratifyCV=is.null(cluster.var)))%>%lapply(function(x) data%>%pull(.data[[id.var]])%>%{.[sort(x)]})
+        folds<-CVFolds(1:nrow(data),id=if(is.null(cluster.var)) NULL else data%>%pull(all_of(cluster.var)),Y=data%>%pull(all_of(event.var)),cvControl=SuperLearner.CV.control(V=nfold,stratifyCV=is.null(cluster.var)))%>%lapply(function(x) data%>%pull(all_of(id.var))%>%{.[sort(x)]})
         surv.list<-lapply(folds,function(fold){
-            if(data%>%filter(!(.data[[id.var]] %in% .env$fold))%>%pull(.data[[event.var]])%>%{all(.==0)}){
+            if(data%>%filter(!(.data[[id.var]] %in% .env$fold))%>%pull(all_of(event.var))%>%{all(.==0)}){
                 surv<-matrix(1,nrow=length(fold),ncol=length(all.times))
                 rownames(surv)<-fold
                 surv
             }else{
                 arg<-c(
-                    list(formula=formula,data=data%>%filter(!(.data[[id.var]] %in% .env$fold))%>%select(!.data[[id.var]])), #remove id.var to allow for . in formula
+                    list(formula=formula,data=data%>%filter(!(.data[[id.var]] %in% .env$fold))%>%select(!all_of(id.var))), #remove id.var to allow for . in formula
                     option
                 )
                 model<-do.call(survivalmodels::coxtime,arg)
@@ -921,42 +921,42 @@ fit_deepsurv<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.
         stop("option specifies formula, data or reverse")
     }
     
-    if(all(pull(data,.data[[event.var]])==0)){
+    if(all(pull(data,all_of(event.var))==0)){
         return(fit_no_event(data,id.var))
     }
     
-    all.times<-data%>%filter(.data[[event.var]]==1)%>%pull(.data[[time.var]])%>%unique%>%sort
+    all.times<-data%>%filter(.data[[event.var]]==1)%>%pull(all_of(time.var))%>%unique%>%sort
     
     if(length(all.times)>1){
         all.times<-seq(min(all.times),max(all.times),length.out=time.grid.size) #t grid
     }
     
     if(!is.null(obs.weight.var)){
-        data<-data%>%select(!.data[[obs.weight.var]])
+        data<-data%>%select(!all_of(obs.weight.var))
     }
     
     if(nfold==1){
         arg<-c(
-            list(formula=formula,data=select(data,!.data[[id.var]])), #remove id.var to allow for . in formula
+            list(formula=formula,data=select(data,!all_of(id.var))), #remove id.var to allow for . in formula
             option
         )
         model<-do.call(survivalmodels::deepsurv,arg)
         surv<-predict(model,type="survival",distr6=FALSE)
         time<-as.numeric(colnames(surv))
-        rownames(surv)<-pull(data,.data[[id.var]])
+        rownames(surv)<-pull(data,all_of(id.var))
         colnames(surv)<-NULL
         pred_surv(time=time,surv=surv)
     }else{
-        # folds<-create.folds(pull(data,.data[[id.var]]),pull(data,.data[[event.var]]),nfold)
-        folds<-CVFolds(1:nrow(data),id=if(is.null(cluster.var)) NULL else data%>%pull(.data[[cluster.var]]),Y=data%>%pull(.data[[event.var]]),cvControl=SuperLearner.CV.control(V=nfold,stratifyCV=is.null(cluster.var)))%>%lapply(function(x) data%>%pull(.data[[id.var]])%>%{.[sort(x)]})
+        # folds<-create.folds(pull(data,all_of(id.var)),pull(data,all_of(event.var)),nfold)
+        folds<-CVFolds(1:nrow(data),id=if(is.null(cluster.var)) NULL else data%>%pull(all_of(cluster.var)),Y=data%>%pull(all_of(event.var)),cvControl=SuperLearner.CV.control(V=nfold,stratifyCV=is.null(cluster.var)))%>%lapply(function(x) data%>%pull(all_of(id.var))%>%{.[sort(x)]})
         surv.list<-lapply(folds,function(fold){
-            if(data%>%filter(!(.data[[id.var]] %in% .env$fold))%>%pull(.data[[event.var]])%>%{all(.==0)}){
+            if(data%>%filter(!(.data[[id.var]] %in% .env$fold))%>%pull(all_of(event.var))%>%{all(.==0)}){
                 surv<-matrix(1,nrow=length(fold),ncol=length(all.times))
                 rownames(surv)<-fold
                 surv
             }else{
                 arg<-c(
-                    list(formula=formula,data=data%>%filter(!(.data[[id.var]] %in% .env$fold))%>%select(!.data[[id.var]])), #remove id.var to allow for . in formula
+                    list(formula=formula,data=data%>%filter(!(.data[[id.var]] %in% .env$fold))%>%select(!all_of(id.var))), #remove id.var to allow for . in formula
                     option
                 )
                 model<-do.call(survivalmodels::deepsurv,arg)
@@ -1017,28 +1017,28 @@ fit_survival_forest<-function(formula,data,id.var,time.var,event.var,nfold=2,tim
     
     formula<-as.formula(paste0("~",as.character(formula)[3]))
     
-    all.times<-data%>%filter(.data[[event.var]]==1)%>%pull(.data[[time.var]])%>%unique%>%sort
+    all.times<-data%>%filter(.data[[event.var]]==1)%>%pull(all_of(time.var))%>%unique%>%sort
     
     if(length(all.times)>1){
         all.times<-seq(min(all.times),max(all.times),length.out=time.grid.size) #t grid
     }
     
     if(nfold==1){
-        time<-data%>%pull(.data[[time.var]])
-        event<-data%>%pull(.data[[event.var]])
+        time<-data%>%pull(all_of(time.var))
+        event<-data%>%pull(all_of(event.var))
         if(!is.null(cluster.var)){
-            cluster.id<-data%>%pull(.data[[cluster.var]])
+            cluster.id<-data%>%pull(all_of(cluster.var))
         }else{
             cluster.id<-NULL
         }
         if(is.null(obs.weight.var)){
             sample.weights<-NULL
         }else{
-            sample.weights<-data%>%pull(.data[[obs.weight.var]])
-            data<-data%>%select(!.data[[obs.weight.var]])
+            sample.weights<-data%>%pull(all_of(obs.weight.var))
+            data<-data%>%select(!all_of(obs.weight.var))
         }
         
-        newX<-X<-model.frame(formula,data=data%>%select(!c(.data[[id.var]],.data[[time.var]],.data[[event.var]])))
+        newX<-X<-model.frame(formula,data=data%>%select(!all_of(c(id.var,time.var,event.var))))
         
         option<-c(option,list(compute.oob.predictions=oob))
         arg<-c(list(X=X,Y=time,D=event,failure.time=all.times,sample.weights=sample.weights,clusters=cluster.id),option)
@@ -1047,37 +1047,37 @@ fit_survival_forest<-function(formula,data,id.var,time.var,event.var,nfold=2,tim
         s.pred<-predict(model,newdata=newX)
         time<-s.pred$failure.times
         surv<-s.pred$predictions
-        rownames(surv)<-pull(data,.data[[id.var]])
+        rownames(surv)<-pull(data,all_of(id.var))
         colnames(surv)<-NULL
         pred_surv(time=time,surv=surv)
     }else{
-        # folds<-create.folds(pull(data,.data[[id.var]]),pull(data,.data[[event.var]]),nfold)
-        folds<-CVFolds(1:nrow(data),id=if(is.null(cluster.var)) NULL else data%>%pull(.data[[cluster.var]]),Y=data%>%pull(.data[[event.var]]),cvControl=SuperLearner.CV.control(V=nfold,stratifyCV=is.null(cluster.var)))%>%lapply(function(x) data%>%pull(.data[[id.var]])%>%{.[sort(x)]})
+        # folds<-create.folds(pull(data,all_of(id.var)),pull(data,all_of(event.var)),nfold)
+        folds<-CVFolds(1:nrow(data),id=if(is.null(cluster.var)) NULL else data%>%pull(all_of(cluster.var)),Y=data%>%pull(all_of(event.var)),cvControl=SuperLearner.CV.control(V=nfold,stratifyCV=is.null(cluster.var)))%>%lapply(function(x) data%>%pull(all_of(id.var))%>%{.[sort(x)]})
         surv.list<-lapply(folds,function(fold){
             d<-data%>%filter(!(.data[[id.var]] %in% .env$fold))
             test.d<-data%>%filter(.data[[id.var]] %in% .env$fold)
             
-            if(d%>%pull(.data[[event.var]])%>%{all(.==0)}){
+            if(d%>%pull(all_of(event.var))%>%{all(.==0)}){
                 surv<-matrix(1,nrow=length(fold),ncol=length(all.times))
                 rownames(surv)<-fold
                 surv
             }else{
-                time<-d%>%pull(.data[[time.var]])
-                event<-d%>%pull(.data[[event.var]])
+                time<-d%>%pull(all_of(time.var))
+                event<-d%>%pull(all_of(event.var))
                 if(!is.null(cluster.var)){
-                    cluster.id<-d%>%pull(.data[[cluster.var]])
+                     cluster.id<-d%>%pull(all_of(cluster.var))
                 }else{
                     cluster.id<-NULL
                 }
                 if(is.null(obs.weight.var)){
                     sample.weights<-NULL
                 }else{
-                    sample.weights<-d%>%pull(.data[[obs.weight.var]])
-                    d<-d%>%select(!.data[[obs.weight.var]])
-                    test.d<-test.d%>%select(!.data[[obs.weight.var]])
+                    sample.weights<-d%>%pull(all_of(obs.weight.var))
+                    d<-d%>%select(!all_of(obs.weight.var))
+                    test.d<-test.d%>%select(!all_of(obs.weight.var))
                 }
-                X<-model.frame(formula,data=d%>%select(!c(.data[[id.var]],.data[[time.var]],.data[[event.var]])))
-                newX<-model.frame(formula,data=test.d%>%select(!c(.data[[id.var]],.data[[time.var]],.data[[event.var]])))
+                X<-model.frame(formula,data=d%>%select(!all_of(c(id.var,time.var,event.var))))
+                newX<-model.frame(formula,data=test.d%>%select(!all_of(c(id.var,time.var,event.var))))
                 
                 arg<-c(list(X=X,Y=time,D=event,failure.time=all.times,sample.weights=sample.weights,clusters=cluster.id),option) #remove id.var to allow for . in formula
                 model<-do.call(grf::survival_forest,arg)

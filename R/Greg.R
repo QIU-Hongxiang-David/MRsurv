@@ -118,13 +118,13 @@ Greg.SuperLearner<-function(
                 Y<-Y.G
             }else{
                 if(length(U.folds)==1){
-                    U<-as.numeric(predict(model,newdata=history%>%select(!.data[[id.var]]),onlySL=TRUE)$pred)
-                    names(U)<-history%>%pull(.data[[id.var]])
+                    U<-as.numeric(predict(model,newdata=history%>%select(!all_of(id.var)),onlySL=TRUE)$pred)
+                    names(U)<-history%>%pull(all_of(id.var))
                 }else{
                     U.list<-lapply(1:length(U.folds),function(v){
                         newdata<-history%>%filter(.data[[id.var]] %in% U.folds[[v]])
-                        U<-as.numeric(predict(models[[v]],newdata=newdata%>%select(!.data[[id.var]]),onlySL=TRUE)$pred)
-                        names(U)<-newdata%>%pull(.data[[id.var]])
+                        U<-as.numeric(predict(models[[v]],newdata=newdata%>%select(!all_of(id.var)),onlySL=TRUE)$pred)
+                        names(U)<-newdata%>%pull(all_of(id.var))
                         U
                     })
                     U<-do.call(c,U.list)
@@ -143,19 +143,19 @@ Greg.SuperLearner<-function(
                 form<-Q.formula
             }
             train.data<-history%>%filter(.data[[id.var]] %in% names(.env$Y))%>%arrange(.data[[id.var]])
-            X<-model.frame(form,train.data%>%select(!.data[[id.var]]))
+            X<-model.frame(form,train.data%>%select(!all_of(id.var)))
             
             if(is.null(cluster.var)){
                 cluster.id<-NULL
             }else{
-                cluster.id<-follow.up.time%>%filter(.data[[id.var]] %in% names(.env$Y))%>%arrange(.data[[id.var]])%>%pull(.data[[cluster.var]])
+                cluster.id<-follow.up.time%>%filter(.data[[id.var]] %in% names(.env$Y))%>%arrange(.data[[id.var]])%>%pull(all_of(cluster.var))
                 names(cluster.id)<-names(Y)
             }
             
             if(is.null(obs.weight.var)){
                 obsWeights<-NULL
             }else{
-                obsWeights<-follow.up.time%>%filter(.data[[id.var]] %in% names(.env$Y))%>%arrange(.data[[id.var]])%>%pull(.data[[obs.weight.var]])
+                obsWeights<-follow.up.time%>%filter(.data[[id.var]] %in% names(.env$Y))%>%arrange(.data[[id.var]])%>%pull(all_of(obs.weight.var))
                 names(obsWeights)<-names(Y)
             }
             
@@ -206,7 +206,7 @@ Greg.SuperLearner<-function(
                         model<-do.call(SuperLearner,SuperLearner.arg)
                     }else{
                         models<-lapply(U.folds,function(fold){
-                            X<-model.frame(form,train.data%>%filter(!(.data[[id.var]] %in% fold))%>%select(!.data[[id.var]]))
+                            X<-model.frame(form,train.data%>%filter(!(.data[[id.var]] %in% fold))%>%select(!all_of(id.var)))
                             SuperLearner.arg<-c(
                                 list(Y=Y[!(names(Y) %in% fold)],X=X,obsWeights=obsWeights[!(names(obsWeights) %in% fold)]),
                                 U.SuperLearner.control

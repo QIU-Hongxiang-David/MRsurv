@@ -124,13 +124,13 @@ MRsurv<-function(
     if(!all(sapply(covariates,has_name,id.var))){
         stop(paste(id.var,"not present in 1+ covariates data"))
     }
-    if(!all(sapply(covariates,function(d) is.character(pull(d,.data[[id.var]]))))){
+    if(!all(sapply(covariates,function(d) is.character(pull(d,all_of(id.var)))))){
         stop(paste(id.var,"is not character in 1+ covariates data"))
     }
     if(!has_name(follow.up.time,id.var)){
         stop(paste(id.var,"not present in follow.up.time"))
     }
-    if(!is.character(pull(follow.up.time,.data[[id.var]]))){
+    if(!is.character(pull(follow.up.time,all_of(id.var)))){
         stop(paste(id.var,"is not character in follow.up.time"))
     }
     if(!has_name(follow.up.time,time.var)){
@@ -143,12 +143,12 @@ MRsurv<-function(
         stop(paste(cluster.var,"not present in follow.up.time"))
     }
     if(!is.null(cluster.var)){
-        covariates <- lapply(covariates, function(df) {
+        covariates<-lapply(covariates, function(df) {
             if(has_name(df,cluster.var)){
                 message(paste0(
                     "The clustering variable '",cluster.var,"' was found inside covariate data frames. It has been removed from the covariates to prevent name collisions during internal joins."
                 ))
-                df<-df%>%select(!.data[[cluster.var]])
+                df<-df%>%select(!all_of(cluster.var))
             }
             df
         })
@@ -163,24 +163,24 @@ MRsurv<-function(
     }
     
     #check id.var is unique
-    if(any(sapply(covariates,function(x) any(duplicated(pull(x,.data[[id.var]])))))){
+    if(any(sapply(covariates,function(x) any(duplicated(pull(x,all_of(id.var))))))){
         stop(paste("Duplicated",id.var,"in 1+ covariates data"))
     }
-    if(any(duplicated(pull(follow.up.time,.data[[id.var]])))){
+    if(any(duplicated(pull(follow.up.time,all_of(id.var))))){
         stop(paste("Duplicated",id.var,"in follow.up.time"))
     }
     
     #check if time.var is numeric
-    if(!is.numeric(pull(follow.up.time,.data[[time.var]]))){
+    if(!is.numeric(pull(follow.up.time,all_of(time.var)))){
         stop(paste(time.var),"is not numeric")
     }
     
     #check event.var is binary
-    if(!(all(pull(follow.up.time,.data[[event.var]]) %in% c(0,1)))){
+    if(!(all(pull(follow.up.time,all_of(event.var)) %in% c(0,1)))){
         stop(paste(event.var,"is not binary"))
     }
     
-    all.event.times<-follow.up.time%>%filter(.data[[event.var]]==1)%>%pull(.data[[time.var]])%>%unique%>%sort
+    all.event.times<-follow.up.time%>%filter(.data[[event.var]]==1)%>%pull(all_of(time.var))%>%unique%>%sort
 
     #check if visit.times are ascending with unique values
     if(is.unsorted(visit.times,strictly=TRUE)){
@@ -188,7 +188,7 @@ MRsurv<-function(
     }
     
     #check if all follow up times are >= the first visit time
-    if(!all(pull(follow.up.time,.data[[time.var]])>=visit.times[1])){
+    if(!all(pull(follow.up.time,all_of(time.var))>=visit.times[1])){
         stop("At least one time in follow.up.time is earlier than the first visit time")
     }
     
@@ -219,7 +219,7 @@ MRsurv<-function(
     #check monotone missing of individuals
     if(K>1){
         lapply(2:K,function(i){
-            if(!all(pull(covariates[[i]],.data[[id.var]]) %in% pull(covariates[[i-1]],.data[[id.var]]))){
+            if(!all(pull(covariates[[i]],all_of(id.var)) %in% pull(covariates[[i-1]],all_of(id.var)))){
                 stop(paste0("1+ individual in covariates[[",i,"]] does not appear in covariates[[",i-1,"]]"))
             }
         })
@@ -227,8 +227,8 @@ MRsurv<-function(
     
     #check individuals' follow up times are consistent with available covariates
     lapply(1:K,function(i){
-        if(!setequal(pull(covariates[[i]],.data[[id.var]]),
-                     follow.up.time%>%filter(.data[[time.var]]>visit.times[i])%>%pull(.data[[id.var]]))){
+        if(!setequal(pull(covariates[[i]],all_of(id.var)),
+                     follow.up.time%>%filter(.data[[time.var]]>visit.times[i])%>%pull(all_of(id.var)))){
             stop(paste0("Individuals in covariates[[",i,"]] differ from those being followed up after visit.time[i]"))
         }
     })
@@ -365,7 +365,7 @@ MRsurv<-function(
         if(!has_name(follow.up.time,obs.weight.var)){
             stop(paste(obs.weight.var,"not present in follow.up.time"))
         }
-        if(follow.up.time%>%pull(.data[[obs.weight.var]])%>%{any(is.na(.) | .<0)}){
+        if(follow.up.time%>%pull(all_of(obs.weight.var))%>%{any(is.na(.) | .<0)}){
             stop(paste(obs.weight.var,"must all be observed and non-negative"))
         }
         # follow.up.time<-follow.up.time%>%mutate("{obs.weight.var}":=.data[[obs.weight.var]]/mean(.data[[obs.weight.var]]))
@@ -457,7 +457,7 @@ MRsurv<-function(
     })
     
     # U.folds<-create.folds(follow.up.time%>%pull(.data[[id.var]]),follow.up.time%>%pull(.data[[event.var]]),U.nfold)
-    U.folds<-CVFolds(1:nrow(follow.up.time),id=if(is.null(cluster.var)) NULL else follow.up.time%>%pull(.data[[cluster.var]]),Y=follow.up.time%>%pull(.data[[event.var]]),cvControl=SuperLearner.CV.control(V=U.nfold,stratifyCV=is.null(cluster.var)))%>%lapply(function(x) follow.up.time%>%pull(.data[[id.var]])%>%{.[sort(x)]})
+    U.folds<-CVFolds(1:nrow(follow.up.time),id=if(is.null(cluster.var)) NULL else follow.up.time%>%pull(all_of(cluster.var)),Y=follow.up.time%>%pull(all_of(event.var)),cvControl=SuperLearner.CV.control(V=U.nfold,stratifyCV=is.null(cluster.var)))%>%lapply(function(x) follow.up.time%>%pull(all_of(id.var))%>%{.[sort(x)]})
     
     ############################################################################
     # multiply robust transformation and regression

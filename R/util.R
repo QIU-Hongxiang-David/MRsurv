@@ -89,25 +89,25 @@ admin.censor<-function(follow.up.time,time.var,event.var,censor.time=Inf){
 
 #convert a vector to a row matrix and return the input if it is already a matrix
 #essentially a copy of as.matrix.default
-as_matrix_rowvec<-function(x){
-    if(is.matrix(x)){
-        x
-    }else{
-        array(x,c(1L,length(x)),
-              if(!is.null(names(x)))
-                  list(names(x), NULL)
-              else
-                  NULL
-        )
-    }
-}
+# as_matrix_rowvec<-function(x){
+#     if(is.matrix(x)){
+#         x
+#     }else{
+#         array(x,c(1L,length(x)),
+#               if(!is.null(names(x)))
+#                   list(names(x), NULL)
+#               else
+#                   NULL
+#         )
+#     }
+# }
 
 
 #shift censoring time to the left a tiny bit
 #used for survival analysis with event observed iff T<C (rather than traditionally T<=C)
 #status: 1 if observed event; 0 if censoring
 left.shift.censoring<-function(time,status){
-    epsilon<-time%>%unique%>%sort%>%diff%>%min
+    epsilon<-c(0,time)%>%unique%>%sort%>%diff%>%min
     epsilon<-min(epsilon*.5,1e-5)
     time[status==0]<-time[status==0]-epsilon
     time

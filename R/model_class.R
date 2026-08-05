@@ -14,10 +14,10 @@ intercept_model<-function(est){
 #' @title S3 class for predictive models with an intercept only and influence function information
 #' @name intercept_IF_model
 #' @param est the predicted mean
-#' @param pseudo.outcome named vector of the pseudo-outcome for observation. The name corresponds to each observation's id. Used in GEE for clustered MR estimator of a scalar estimand (rather than a function).
-#' @param IF named vector of influence function evaluated at each observation. The name corresponds to each observation's id. Used to calculate standard error and confidence interval for MR estimator (with iid data) of a scalar estimand (rather than a function).
+#' @param pseudo.outcome named vector of the pseudo-outcome for each observation. The name corresponds to each observation's id. Used in GEE for clustered MR estimator of a scalar estimand (rather than a function).
+#' @param IF named vector of influence function evaluated at each observation (if data is iid) or cluster (if data is clustered). The name corresponds to each observation's or cluster's id. Used to calculate standard error and confidence interval for MR estimator of a scalar estimand (rather than a function).
 #' @param SE standard error
-#' @return an "`intercept_IF_model`" object, essentially a list with element `est` and `IF`.
+#' @return an "`intercept_IF_model`" object, essentially a list with elements `est`, `pseudo.outcome`, `IF`, and `SE`.
 #' @export
 intercept_IF_model<-function(est,pseudo.outcome,IF,SE){
     assert_that(is.number(est))

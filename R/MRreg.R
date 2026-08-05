@@ -276,7 +276,9 @@ MRreg.SuperLearner<-function(
                     gee.df<-gee.df%>%arrange(.data$cluster.id) #sort by cluster so that geeglm identifies clusters correctly
                     gee<-geepack::geeglm(Y~1,weights=weights,id=cluster.id,family=gaussian(),corstr=corstr,data=gee.df)
                     est<-as.numeric(coef(gee))
-                    IF<-NULL
+                    IF<-as.numeric(gee$geese$infls[1,])
+                    IF<-IF*length(IF)
+                    names(IF)<-unique(gee.df$cluster.id)
                     SE<-sqrt(vcov(gee)[1,1])
                 }
                 

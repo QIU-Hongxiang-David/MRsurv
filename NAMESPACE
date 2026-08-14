@@ -37,36 +37,48 @@ export(pred_event_censor)
 export(pred_surv)
 export(truncate_pred_event_censor)
 export(truncate_pred_surv)
-importFrom(SuperLearner,CVFolds)
-importFrom(SuperLearner,SuperLearner.CV.control)
-importFrom(assertthat,assert_that)
-importFrom(assertthat,has_name)
-importFrom(assertthat,is.count)
-importFrom(assertthat,is.flag)
-importFrom(assertthat,is.number)
-importFrom(assertthat,is.string)
-importFrom(assertthat,noNA)
-importFrom(dplyr,`%>%`)
-importFrom(dplyr,all_of)
-importFrom(dplyr,arrange)
-importFrom(dplyr,filter)
-importFrom(dplyr,left_join)
-importFrom(dplyr,mutate)
-importFrom(dplyr,pull)
-importFrom(dplyr,right_join)
-importFrom(dplyr,select)
-importFrom(dplyr,tibble)
+importFrom(SuperLearner,
+  CVFolds,
+  SuperLearner.CV.control
+)
+importFrom(assertthat,
+  assert_that,
+  has_name,
+  is.count,
+  is.flag,
+  is.number,
+  is.string,
+  noNA
+)
+importFrom(dplyr,
+  `%>%`,
+  all_of,
+  arrange,
+  filter,
+  left_join,
+  mutate,
+  pull,
+  right_join,
+  select,
+  tibble
+)
 importFrom(matrixStats,rowCumsums)
-importFrom(purrr,is_formula)
-importFrom(purrr,reduce)
-importFrom(rlang,.data)
-importFrom(rlang,.env)
-importFrom(stats,as.formula)
-importFrom(stats,coef)
-importFrom(stats,confint)
-importFrom(stats,gaussian)
-importFrom(stats,model.frame)
-importFrom(stats,predict)
-importFrom(stats,qnorm)
-importFrom(stats,vcov)
+importFrom(purrr,
+  is_formula,
+  reduce
+)
+importFrom(rlang,
+  .data,
+  .env
+)
+importFrom(stats,
+  as.formula,
+  coef,
+  confint,
+  gaussian,
+  model.frame,
+  predict,
+  qnorm,
+  vcov
+)
 importFrom(survival,Surv)

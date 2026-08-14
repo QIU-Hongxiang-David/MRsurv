@@ -11,6 +11,7 @@ fit_survSuperLearner(
   time.var,
   event.var,
   nfold = 2,
+  time.grid = NULL,
   time.grid.size = 250,
   option = list(event.SL.library = c("survSL.coxph", "survSL.weibreg", "survSL.gam",
     "survSL.rfsrc"), cens.SL.library = c("survSL.coxph", "survSL.weibreg", "survSL.gam",
@@ -33,7 +34,9 @@ fit_survSuperLearner(
 
 \item{nfold}{number of folds used when fitting survival curves with sample splitting. Default is 2. If \code{nfold=1}, sample is not split.}
 
-\item{time.grid.size}{size of time grid if more than 1 event times, default to 250}
+\item{time.grid}{a vector of time points at which to evaluate the survival curve. If NULL, a default grid will be used.}
+
+\item{time.grid.size}{size of time grid, default to 250. If \code{time.grid} is provided (not NULL), this argument will be ignored.}
 
 \item{option}{a list containing optional arguments passed to \code{\link[survSuperLearner:survSuperLearner]{survSuperLearner::survSuperLearner}}. We encourage using a named list. Will be passed to \code{\link[survSuperLearner:survSuperLearner]{survSuperLearner::survSuperLearner}} by running a command like \code{do.call(survSuperLearner, option)}. The user should not specify \code{time}, \code{event}, \code{X}, or \code{newX}. We encourage the user to specify \code{event.SL.library} and \code{cens.SL.library}.}
 

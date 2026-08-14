@@ -2,19 +2,21 @@
 #' @name fit_surv_option
 #' @param nfold number of folds used when fitting survival curves with sample splitting. Default is 1, meaning no sample splitting
 #' @param option a list containing optional arguments passed to the wrapped machine learning function. Will be used in a command like `do.call(machine.learning, option)` where `machine.learning` is the machine learning function being called. `formula` and `data` should not be specified. For \code{\link[randomForestSRC:rfsrc]{randomForestSRC::rfsrc}}, if `tune=TRUE`, then `mtry` and `nodesize` should not be specified either.
-#' @param time.grid.size size of time grid, default to 250
+#' @param time.grid a vector of time points at which to evaluate the survival curve. If NULL, a default grid will be used.
+#' @param time.grid.size size of time grid, default to 250. If `time.grid` is provided (not NULL), this argument will be ignored for all survival nuisance estimators.
 #' @param oob whether to use out-of-bag (OOB) fitted values from random forests (\code{\link[randomForestSRC:rfsrc]{randomForestSRC::rfsrc}}, \code{\link[party:cforest]{party::cforest}}) and \code{\link[grf:survival_forest]{grf::survival_forest}}) when sample splitting is not used (`nfold=1`). Ignored otherwise.
 #' @param tune whether to tune `mtry` and `nodesize` for \code{\link[randomForestSRC:rfsrc]{randomForestSRC::rfsrc}}. Ignored for other methods.
 #' @param tune.option a list containing optional arguments passed to \code{\link[randomForestSRC:tune]{randomForestSRC::tune.rfsrc}} if \code{\link[randomForestSRC:rfsrc]{randomForestSRC::rfsrc}} is used and `tune=TRUE`; ignored otherwise. `doBest` should not be specified.
 #' @param lambda bandwidth parameter for uniform smoothing kernel in nearest neighbours estimation for method `"akritas"`. The default value of 0.5 is arbitrary and should be chosen by the user
 #' @export
-fit_surv_option<-function(nfold=2,option=list(),time.grid.size=250,oob=TRUE,tune=TRUE,tune.option=list(),lambda=0.5){
+fit_surv_option<-function(nfold=2,option=list(),time.grid=NULL,time.grid.size=250,oob=TRUE,tune=TRUE,tune.option=list(),lambda=0.5){
     assert_that(is.count(nfold))
+    assert_that(is.null(time.grid) || is.numeric(time.grid))
     assert_that(is.count(time.grid.size))
     assert_that(is.flag(oob))
     assert_that(is.flag(tune))
     assert_that(is.number(lambda),lambda>0)
-    out<-list(nfold=nfold,time.grid.size=time.grid.size,option=option,oob=oob,tune=tune,tune.option=tune.option,lambda=lambda)
+    out<-list(nfold=nfold,time.grid=time.grid,time.grid.size=time.grid.size,option=option,oob=oob,tune=tune,tune.option=tune.option,lambda=lambda)
     class(out)<-"fit_surv_option"
     out
 }
@@ -62,14 +64,15 @@ fit_no_event<-function(data,id.var,...){
 #' @param time.var see \code{\link{MRsurv}}
 #' @param event.var see \code{\link{MRsurv}}
 #' @param nfold number of folds used when fitting survival curves with sample splitting. Default is 2. If `nfold=1`, sample is not split.
-#' @param time.grid.size size of time grid if more than 1 event times, default to 250
+#' @param time.grid a vector of time points at which to evaluate the survival curve. If NULL, a default grid will be used.
+#' @param time.grid.size size of time grid, default to 250. If `time.grid` is provided (not NULL), this argument will be ignored.
 #' @param option a list containing optional arguments passed to \code{\link[survSuperLearner:survSuperLearner]{survSuperLearner::survSuperLearner}}. We encourage using a named list. Will be passed to \code{\link[survSuperLearner:survSuperLearner]{survSuperLearner::survSuperLearner}} by running a command like `do.call(survSuperLearner, option)`. The user should not specify `time`, `event`, `X`, or `newX`. We encourage the user to specify `event.SL.library` and `cens.SL.library`.
 #' @param cluster.var see \code{\link{MRsurv}}. If provided, this variable is used to split samples when using cross-fitting and/or cross-valiation.
 #' @param obs.weight.var see \code{\link{MRsurv}}
 #' @param ... ignored
 #' @return a \code{\link{pred_event_censor}} class containing fitted survival curves for individuals in `data`
 #' @export
-fit_survSuperLearner<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.size=250,option=list(event.SL.library=c("survSL.coxph","survSL.weibreg","survSL.gam","survSL.rfsrc"),cens.SL.library=c("survSL.coxph","survSL.weibreg","survSL.gam","survSL.rfsrc")),cluster.var=NULL,obs.weight.var=NULL,...){
+fit_survSuperLearner<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid=NULL,time.grid.size=250,option=list(event.SL.library=c("survSL.coxph","survSL.weibreg","survSL.gam","survSL.rfsrc"),cens.SL.library=c("survSL.coxph","survSL.weibreg","survSL.gam","survSL.rfsrc")),cluster.var=NULL,obs.weight.var=NULL,...){
     .requireNamespace("survSuperLearner")
     
     #check if option is a list and whether it specifies formula and data
@@ -108,8 +111,12 @@ fit_survSuperLearner<-function(formula,data,id.var,time.var,event.var,nfold=2,ti
         
         newX<-X<-model.frame(formula,data=data%>%select(!all_of(c(id.var,time.var,event.var))))
         
-        new.times<-sort(unique(time))
-        new.times<-seq(min(time),max(time),length.out=time.grid.size) #t grid
+        # new.times<-sort(unique(time))
+        if(is.null(time.grid)){
+            new.times<-seq(min(time),max(time),length.out=time.grid.size) #t grid
+        }else{
+            new.times<-time.grid
+        }
         
         arg<-c(list(time=time,event=event,X=X,newX=newX,new.times=new.times,id=cluster.id,obsWeights=obsWeights),option)
         if(!is.null(cluster.var)){
@@ -130,10 +137,14 @@ fit_survSuperLearner<-function(formula,data,id.var,time.var,event.var,nfold=2,ti
         pred_surv(time=new.times,surv=event.pred)
     }else{
         all.times<-data%>%pull(all_of(time.var))%>%unique%>%sort
-        
-        if(length(all.times)>1){
-            all.times<-seq(min(all.times),max(all.times),length.out=time.grid.size) #t grid
+        if(is.null(time.grid)){
+            if(length(all.times)>1){
+                all.times<-seq(min(all.times),max(all.times),length.out=time.grid.size) #t grid
+            }
+        }else{
+            all.times<-time.grid
         }
+        
         
         # folds<-create.folds(pull(data,.data[[id.var]]),pull(data,.data[[event.var]]),nfold)
         folds<-CVFolds(1:nrow(data),id=if(is.null(cluster.var)) NULL else data%>%pull(all_of(cluster.var)),Y=data%>%pull(all_of(event.var)),cvControl=SuperLearner.CV.control(V=nfold,stratifyCV=is.null(cluster.var)))%>%lapply(function(x) data%>%pull(all_of(id.var))%>%{.[sort(x)]})
@@ -215,7 +226,8 @@ fit_survSuperLearner<-function(formula,data,id.var,time.var,event.var,nfold=2,ti
 #' @param time.var see \code{\link{MRsurv}}
 #' @param event.var see \code{\link{MRsurv}}
 #' @param nfold number of folds used when fitting survival curves with sample splitting. Default is 2. If `nfold=1`, sample is not split.
-#' @param time.grid.size size of time grid if more than 1 event times, default to 250
+#' @param time.grid a vector of time points at which to evaluate the survival curve. If NULL, a default grid will be used.
+#' @param time.grid.size size of time grid, default to 250. If `time.grid` is provided (not NULL), this argument will be ignored for all survival nuisance estimators.
 #' @param option a list containing optional arguments passed to \code{\link[randomForestSRC:rfsrc]{randomForestSRC::rfsrc}}. We encourage using a named list. Will be passed to \code{\link[randomForestSRC:rfsrc]{randomForestSRC::rfsrc}} by running a command like `do.call(rfsrc, option)`. The user should not specify `formula` and `data`.
 #' @param oob whether to use out-of-bag (OOB) fitted values from \code{\link[randomForestSRC:rfsrc]{randomForestSRC::rfsrc}} when sample splitting is not used (`nfold=1`)
 #' @param tune whether to tune `mtry` and `nodesize`.
@@ -225,7 +237,7 @@ fit_survSuperLearner<-function(formula,data,id.var,time.var,event.var,nfold=2,ti
 #' @param ... ignored
 #' @return a \code{\link{pred_surv}} class containing fitted survival curves for individuals in `data`
 #' @export
-fit_rfsrc<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.size=250,option=list(),oob=TRUE,tune=TRUE,tune.option=list(),cluster.var=NULL,obs.weight.var,...){
+fit_rfsrc<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid=NULL,time.grid.size=250,option=list(),oob=TRUE,tune=TRUE,tune.option=list(),cluster.var=NULL,obs.weight.var,...){
     .requireNamespace("randomForestSRC")
     
     #check if option is a list and whether it specifies formula and data
@@ -254,7 +266,11 @@ fit_rfsrc<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.siz
     
     all.times<-data%>%filter(.data[[event.var]]==1)%>%pull(all_of(time.var))%>%unique%>%sort
     if(length(all.times)>1){
-        all.times<-seq(min(all.times),max(all.times),length.out=time.grid.size) #t grid
+        if(is.null(time.grid)){
+            all.times<-seq(min(all.times),max(all.times),length.out=time.grid.size) #t grid
+        }else{
+            all.times<-time.grid
+        }
     }
     if(nfold==1){
         if(tune){
@@ -362,14 +378,15 @@ fit_rfsrc<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.siz
 #' @param time.var see \code{\link{MRsurv}}
 #' @param event.var see \code{\link{MRsurv}}
 #' @param nfold number of folds used when fitting survival curves with sample splitting. Default is 2. If `nfold=1`, sample is not split.
-#' @param time.grid.size size of time grid if more than 1 event times, default to 250
+#' @param time.grid a vector of time points at which to evaluate the survival curve. If NULL, a default grid will be used.
+#' @param time.grid.size size of time grid, default to 250. If `time.grid` is provided (not NULL), this argument will be ignored for all survival nuisance estimators.
 #' @param option a list containing optional arguments passed to \code{\link[party:ctree]{party::ctree}}. We encourage using a named list. Will be passed to \code{\link[party:ctree]{party::ctree}} by running a command like `do.call(ctree, option)`. The user should not specify `formula` and `data`.
 #' @param cluster.var see \code{\link{MRsurv}}. If provided, this variable is used to split samples when using cross-fitting.
 #' @param obs.weight.var see \code{\link{MRsurv}}
 #' @param ... ignored
 #' @return a \code{\link{pred_surv}} class containing fitted survival curves for individuals in `data`
 #' @export
-fit_ctree<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.size=250,option=list(),cluster.var=NULL,obs.weight.var,...){
+fit_ctree<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid=NULL,time.grid.size=250,option=list(),cluster.var=NULL,obs.weight.var,...){
     .requireNamespace("party")
     
     #check if option is a list and whether it specifies formula and data
@@ -383,9 +400,12 @@ fit_ctree<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.siz
     }
     
     all.times<-data%>%filter(.data[[event.var]]==1)%>%pull(all_of(time.var))%>%unique%>%sort
-    
-    if(length(all.times)>1){
-        all.times<-seq(min(all.times),max(all.times),length.out=time.grid.size) #t grid
+    if(is.null(time.grid)){
+        if(length(all.times)>1){
+            all.times<-seq(min(all.times),max(all.times),length.out=time.grid.size) #t grid
+        }
+    }else{
+        all.times<-time.grid
     }
     
     if(nfold==1){
@@ -479,14 +499,15 @@ fit_ctree<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.siz
 #' @param time.var see \code{\link{MRsurv}}
 #' @param event.var see \code{\link{MRsurv}}
 #' @param nfold number of folds used when fitting survival curves with sample splitting. Default is 2. If `nfold=1`, sample is not split.
-#' @param time.grid.size size of time grid if more than 1 event times, default to 250
+#' @param time.grid a vector of time points at which to evaluate the survival curve. If NULL, a default grid will be used.
+#' @param time.grid.size size of time grid, default to 250. If `time.grid` is provided (not NULL), this argument will be ignored for all survival nuisance estimators.
 #' @param option a list containing optional arguments passed to \code{\link[rpart:rpart]{rpart::rpart}}. We encourage using a named list. Will be passed to \code{\link[rpart:rpart]{rpart::rpart}} by running a command like `do.call(rpart, option)`. The user should not specify `formula` and `data`.
 #' @param cluster.var see \code{\link{MRsurv}}. If provided, this variable is used to split samples when using cross-fitting.
 #' @param obs.weight.var see \code{\link{MRsurv}}
 #' @param ... ignored
 #' @return a \code{\link{pred_surv}} class containing fitted survival curves for individuals in `data`
 #' @export
-fit_rpart<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.size=250,option=list(),cluster.var=NULL,obs.weight.var,...){
+fit_rpart<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid=NULL,time.grid.size=250,option=list(),cluster.var=NULL,obs.weight.var,...){
     .requireNamespace("rpart")
     .requireNamespace("party")
     .requireNamespace("partykit")
@@ -502,9 +523,12 @@ fit_rpart<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.siz
     }
     
     all.times<-data%>%filter(.data[[event.var]]==1)%>%pull(all_of(time.var))%>%unique%>%sort
-    
-    if(length(all.times)>1){
-        all.times<-seq(min(all.times),max(all.times),length.out=time.grid.size) #t grid
+    if(is.null(time.grid)){
+        if(length(all.times)>1){
+            all.times<-seq(min(all.times),max(all.times),length.out=time.grid.size) #t grid
+        }
+    }else{
+        all.times<-time.grid
     }
     
     if(nfold==1){
@@ -590,7 +614,8 @@ fit_rpart<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.siz
 #' @param time.var see \code{\link{MRsurv}}
 #' @param event.var see \code{\link{MRsurv}}
 #' @param nfold number of folds used when fitting survival curves with sample splitting. Default is 2. If `nfold=1`, sample is not split.
-#' @param time.grid.size size of time grid if more than 1 event times, default to 250
+#' @param time.grid a vector of time points at which to evaluate the survival curve. If NULL, a default grid will be used.
+#' @param time.grid.size size of time grid, default to 250. If `time.grid` is provided (not NULL), this argument will be ignored
 #' @param option a list containing optional arguments passed to \code{\link[party:cforest]{party::cforest}}. We encourage using a named list. Will be passed to \code{\link[party:cforest]{party::cforest}} by running a command like `do.call(cforest, option)`. The user should not specify `formula` and `data`.
 #' @param oob whether to use out-of-bag (OOB) fitted values from \code{\link[party:cforest]{party::cforest}} when sample splitting is not used (`nfold=1`)
 #' @param cluster.var see \code{\link{MRsurv}}. If provided, this variable is used to split samples when using cross-fitting.
@@ -598,7 +623,7 @@ fit_rpart<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.siz
 #' @param ... ignored
 #' @return a \code{\link{pred_surv}} class containing fitted survival curves for individuals in `data`
 #' @export
-fit_cforest<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.size=250,option=list(),oob=TRUE,cluster.var=NULL,obs.weight.var,...){
+fit_cforest<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid=NULL,time.grid.size=250,option=list(),oob=TRUE,cluster.var=NULL,obs.weight.var,...){
     .requireNamespace("party")
     
     #check if option is a list and whether it specifies formula and data
@@ -616,8 +641,12 @@ fit_cforest<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.s
     
     all.times<-data%>%filter(.data[[event.var]]==1)%>%pull(all_of(time.var))%>%unique%>%sort
     
-    if(length(all.times)>1){
-        all.times<-seq(min(all.times),max(all.times),length.out=time.grid.size) #t grid
+    if(is.null(time.grid)){
+        if(length(all.times)>1){
+            all.times<-seq(min(all.times),max(all.times),length.out=time.grid.size) #t grid
+        }
+    }else{
+        all.times<-time.grid
     }
     
     if(nfold==1){
@@ -703,7 +732,8 @@ fit_cforest<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.s
 #' @param time.var see \code{\link{MRsurv}}
 #' @param event.var see \code{\link{MRsurv}}
 #' @param nfold number of folds used when fitting survival curves with sample splitting. Default is 2. If `nfold=1`, sample is not split.
-#' @param time.grid.size size of time grid if more than 1 event times, default to 250
+#' @param time.grid a vector of time points at which to evaluate the survival curve. If NULL, a default grid will be used.
+#' @param time.grid.size size of time grid, default to 250. If `time.grid` is provided (not NULL), this argument will be ignored
 #' @param option a list containing optional arguments passed to \code{\link[survival:coxph]{survival::coxph}}. We encourage using a named list. Will be passed to \code{\link[survival:coxph]{survival::coxph}} by running a command like `do.call(coxph, option)`. The user should not specify `formula` and `data`.
 #' @param option a list containing optional arguments passed to \code{\link[survival:coxph]{survival::coxph}}. We encourage using a named list. Will be passed to \code{\link[survival:coxph]{survival::coxph}} by running a command like `do.call(coxph, option)`. The user should not specify `formula` and `data`.
 #' @param cluster.var see \code{\link{MRsurv}}. If provided, this variable is used to split samples when using cross-fitting.
@@ -711,7 +741,7 @@ fit_cforest<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.s
 #' @param ... ignored
 #' @return a \code{\link{pred_surv}} class containing fitted survival curves for individuals in `data`
 #' @export
-fit_coxph<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.size=250,option=list(),cluster.var=NULL,obs.weight.var,...){
+fit_coxph<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid=NULL,time.grid.size=250,option=list(),cluster.var=NULL,obs.weight.var,...){
     .require("survival")
     # .requireNamespace("pec")
     
@@ -730,9 +760,12 @@ fit_coxph<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.siz
     }
     
     all.times<-data%>%filter(.data[[event.var]]==1)%>%pull(all_of(time.var))%>%unique%>%sort
-    
-    if(length(all.times)>1){
-        all.times<-seq(min(all.times),max(all.times),length.out=time.grid.size) #t grid
+    if(is.null(time.grid)){
+        if(length(all.times)>1){
+            all.times<-seq(min(all.times),max(all.times),length.out=time.grid.size) #t grid
+        }
+    }else{
+        all.times<-time.grid
     }
     
     if(nfold==1){
@@ -816,14 +849,15 @@ fit_coxph<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.siz
 #' @param time.var see \code{\link{MRsurv}}
 #' @param event.var see \code{\link{MRsurv}}
 #' @param nfold number of folds used when fitting survival curves with sample splitting. Default is 2. If `nfold=1`, sample is not split.
-#' @param time.grid.size size of time grid if more than 1 event times, default to 250
+#' @param time.grid a vector of time points at which to evaluate the survival curve. If NULL, a default grid will be used.
+#' @param time.grid.size size of time grid, default to 250. If `time.grid` is provided (not NULL), this argument will be ignored.
 #' @param option a list containing optional arguments passed to \code{\link[survivalmodels:coxtime]{survivalmodels::coxtime}}. We encourage using a named list. Will be passed to \code{\link[survivalmodels:coxtime]{survivalmodels::coxtime}} by running a command like `do.call(coxtime, option)`. The user should not specify `formula`, `data` and `reverse`; `time_variable`, `status_variable`, `x`, `y` will be ignored.
 #' @param cluster.var see \code{\link{MRsurv}}. If provided, this variable is used to split samples when using cross-fitting.
 #' @param obs.weight.var observational weight, a variable to be ignored, especially if `.` is used in `formula`
 #' @param ... ignored
 #' @return a \code{\link{pred_surv}} class containing fitted survival curves for individuals in `data`
 #' @export
-fit_coxtime<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.size=250,option=list(),cluster.var=NULL,obs.weight.var=NULL,...){
+fit_coxtime<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid=NULL,time.grid.size=250,option=list(),cluster.var=NULL,obs.weight.var=NULL,...){
     .requireNamespace("survivalmodels")
     
     #check if option is a list and whether it specifies formula and data
@@ -838,8 +872,12 @@ fit_coxtime<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.s
     
     all.times<-data%>%filter(.data[[event.var]]==1)%>%pull(all_of(time.var))%>%unique%>%sort
     
-    if(length(all.times)>1){
-        all.times<-seq(min(all.times),max(all.times),length.out=time.grid.size) #t grid
+    if(is.null(time.grid)){
+        if(length(all.times)>1){
+            all.times<-seq(min(all.times),max(all.times),length.out=time.grid.size) #t grid
+        }
+    }else{
+        all.times<-time.grid
     }
     
     if(!is.null(obs.weight.var)){
@@ -905,14 +943,15 @@ fit_coxtime<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.s
 #' @param time.var see \code{\link{MRsurv}}
 #' @param event.var see \code{\link{MRsurv}}
 #' @param nfold number of folds used when fitting survival curves with sample splitting. Default is 2. If `nfold=1`, sample is not split.
-#' @param time.grid.size size of time grid if more than 1 event times, default to 250
+#' @param time.grid a vector of time points at which to evaluate the survival curve. If NULL, a default grid will be used.
+#' @param time.grid.size size of time grid, default to 250. If `time.grid` is provided (not NULL), this argument will be ignored.
 #' @param option a list containing optional arguments passed to \code{\link[survivalmodels:deepsurv]{survivalmodels::deepsurv}}. We encourage using a named list. Will be passed to \code{\link[survivalmodels:deepsurv]{survivalmodels::deepsurv}} by running a command like `do.call(deepsurv, option)`. The user should not specify `formula`, `data` and `reverse`; `time_variable`, `status_variable`, `x`, `y` will be ignored.
 #' @param cluster.var see \code{\link{MRsurv}}. If provided, this variable is used to split samples when using cross-fitting.
 #' @param obs.weight.var observational weight, a variable to be ignored, especially if `.` is used in `formula`
 #' @param ... ignored
 #' @return a \code{\link{pred_surv}} class containing fitted survival curves for individuals in `data`
 #' @export
-fit_deepsurv<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.size=250,option=list(),cluster.var=NULL,obs.weight.var=NULL,...){
+fit_deepsurv<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid=NULL,time.grid.size=250,option=list(),cluster.var=NULL,obs.weight.var=NULL,...){
     .requireNamespace("survivalmodels")
     
     #check if option is a list and whether it specifies formula and data
@@ -926,9 +965,12 @@ fit_deepsurv<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.
     }
     
     all.times<-data%>%filter(.data[[event.var]]==1)%>%pull(all_of(time.var))%>%unique%>%sort
-    
-    if(length(all.times)>1){
-        all.times<-seq(min(all.times),max(all.times),length.out=time.grid.size) #t grid
+    if(is.null(time.grid)){
+        if(length(all.times)>1){
+            all.times<-seq(min(all.times),max(all.times),length.out=time.grid.size) #t grid
+        }
+    }else{
+        all.times<-time.grid
     }
     
     if(!is.null(obs.weight.var)){
@@ -995,7 +1037,8 @@ fit_deepsurv<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.
 #' @param time.var see \code{\link{MRsurv}}
 #' @param event.var see \code{\link{MRsurv}}
 #' @param nfold number of folds used when fitting survival curves with sample splitting. Default is 2. If `nfold=1`, sample is not split.
-#' @param time.grid.size size of time grid if more than 1 event times, default to 250
+#' @param time.grid a vector of time points at which to evaluate the survival curve. If NULL, a default grid will be used.
+#' @param time.grid.size size of time grid, default to 250. If `time.grid` is provided (not NULL), this argument will be ignored.
 #' @param oob whether to use out-of-bag (OOB) fitted values from \code{\link[grf:survival_forest]{grf::survival_forest}} when sample splitting is not used (`nfold=1`). Default is `TRUE`
 #' @param option a list containing optional arguments passed to \code{\link[grf:survival_forest]{grf::survival_forest}}. We encourage using a named list. Will be passed to \code{\link[grf:survival_forest]{grf::survival_forest}} by running a command like `do.call(survival_forest, option)`. The user should not specify `X`, `Y`, `D`, `failure.times` and `compute.oob.predictions`.
 #' @param cluster.var see \code{\link{MRsurv}}. If provided, this variable is used to split samples when using cross-fitting and in \code{\link[grf:survival_forest]{grf::survival_forest}}.
@@ -1003,7 +1046,7 @@ fit_deepsurv<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.
 #' @param ... ignored
 #' @return a \code{\link{pred_surv}} class containing fitted survival curves for individuals in `data`
 #' @export
-fit_survival_forest<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid.size=250,oob=TRUE,option=list(),cluster.var=NULL,obs.weight.var,...){
+fit_survival_forest<-function(formula,data,id.var,time.var,event.var,nfold=2,time.grid=NULL,time.grid.size=250,oob=TRUE,option=list(),cluster.var=NULL,obs.weight.var,...){
     .requireNamespace("grf")
     
     #check if oob is logical
@@ -1019,8 +1062,12 @@ fit_survival_forest<-function(formula,data,id.var,time.var,event.var,nfold=2,tim
     
     all.times<-data%>%filter(.data[[event.var]]==1)%>%pull(all_of(time.var))%>%unique%>%sort
     
-    if(length(all.times)>1){
-        all.times<-seq(min(all.times),max(all.times),length.out=time.grid.size) #t grid
+    if(is.null(time.grid)){
+        if(length(all.times)>1){
+            all.times<-seq(min(all.times),max(all.times),length.out=time.grid.size) #t grid
+        }
+    }else{
+        all.times<-time.grid
     }
     
     if(nfold==1){

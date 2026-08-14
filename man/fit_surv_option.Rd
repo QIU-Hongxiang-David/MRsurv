@@ -7,6 +7,7 @@
 fit_surv_option(
   nfold = 2,
   option = list(),
+  time.grid = NULL,
   time.grid.size = 250,
   oob = TRUE,
   tune = TRUE,
@@ -19,7 +20,9 @@ fit_surv_option(
 
 \item{option}{a list containing optional arguments passed to the wrapped machine learning function. Will be used in a command like \code{do.call(machine.learning, option)} where \code{machine.learning} is the machine learning function being called. \code{formula} and \code{data} should not be specified. For \code{\link[randomForestSRC:rfsrc]{randomForestSRC::rfsrc}}, if \code{tune=TRUE}, then \code{mtry} and \code{nodesize} should not be specified either.}
 
-\item{time.grid.size}{size of time grid, default to 250}
+\item{time.grid}{a vector of time points at which to evaluate the survival curve. If NULL, a default grid will be used.}
+
+\item{time.grid.size}{size of time grid, default to 250. If \code{time.grid} is provided (not NULL), this argument will be ignored for all survival nuisance estimators.}
 
 \item{oob}{whether to use out-of-bag (OOB) fitted values from random forests (\code{\link[randomForestSRC:rfsrc]{randomForestSRC::rfsrc}}, \code{\link[party:cforest]{party::cforest}}) and \code{\link[grf:survival_forest]{grf::survival_forest}}) when sample splitting is not used (\code{nfold=1}). Ignored otherwise.}
 

@@ -112,3 +112,25 @@ left.shift.censoring<-function(time,status){
     time[status==0]<-time[status==0]-epsilon
     time
 }
+
+
+
+#' @title Options of SuperLearner for fitting conditional survival probability functions Q and U
+#' @description
+#' The output is essentially a list to be passed to \code{\link[SuperLearner:SuperLearner]{SuperLearner::SuperLearner}} by running a command like `do.call(SuperLearner, QU.SuperLearner.control)`. The user should not specify `Y` and `X`.
+#' @name QU.SuperLearner.control
+#' @param family family passed to \code{\link[SuperLearner:SuperLearner]{SuperLearner::SuperLearner}}. Defaults to `gaussian()`. For compatibility with machine learning algorithms in \code{\link[SuperLearner:SuperLearner]{SuperLearner::SuperLearner}}, `family$family` must be "gaussian", with a possibly non-identity link (e.g., `gaussian(link=log)`) for more flexible usage of \code{\link[SuperLearner:SL.glm]{SuperLearner::SL.glm}}.
+#' @param SL.library library of learners passed to \code{\link[SuperLearner:SuperLearner]{SuperLearner::SuperLearner}}. Defaults to linear regression "SL.lm"
+#' @param ... further named arguments passed to \code{\link[SuperLearner:SuperLearner]{SuperLearner::SuperLearner}}
+#' @return a `QU.SuperLearner.control` object
+#' @section Custom learners:
+#' Custom learners may be specified by providing an character vector to `SL.library`. The user may refer to resources such as \url{https://cran.r-project.org/web/packages/SuperLearner/vignettes/Guide-to-SuperLearner.html} for a guide to create custom learners.
+#' @export
+QU.SuperLearner.control<-function(family=gaussian(),SL.library="SL.lm",...){
+    out<-list(family=family,SL.library=SL.library,...)
+    if(any(c("Y","X","obsWeights") %in% names(out))){
+        stop("Y, X and obsWeights should not be specified")
+    }
+    class(out)<-"QU.SuperLearner.control"
+    out
+}

@@ -17,29 +17,13 @@ MR_G_IPCW_surv(
   censor.formula = NULL,
   U.formula = NULL,
   Q.formula = ~.,
-  event.method = c("survSuperLearner", "rfsrc", "ctree", "rpart", "cforest", "coxph",
-    "coxtime", "deepsurv", "survival_forest"),
-  censor.method = c("survSuperLearner", "rfsrc", "ctree", "rpart", "cforest", "coxph",
-    "coxtime", "deepsurv", "survival_forest"),
-  event.control = if (event.method != "survSuperLearner") {
-     fit_surv_option()
- }
-    else {
-     fit_surv_option(option = list(event.SL.library = c("survSL.coxph",
-    "survSL.weibreg", "survSL.gam", "survSL.rfsrc"), cens.SL.library = c("survSL.coxph",
-    "survSL.weibreg", "survSL.gam", "survSL.rfsrc")))
- },
-  censor.control = if (censor.method != "survSuperLearner") {
-     fit_surv_option()
- }
-    else {
-     fit_surv_option(option = list(event.SL.library = c("survSL.coxph",
-    "survSL.weibreg", "survSL.gam", "survSL.rfsrc"), cens.SL.library = c("survSL.coxph",
-    "survSL.weibreg", "survSL.gam", "survSL.rfsrc")))
- },
+  event.method = "survSuperLearner",
+  censor.method = "survSuperLearner",
+  event.control = NULL,
+  censor.control = NULL,
   U.nfold = 2,
-  U.SuperLearner.control = list(family = gaussian(), SL.library = "SL.lm"),
-  Q.SuperLearner.control = U.SuperLearner.control,
+  U.SuperLearner.control = QU.SuperLearner.control(),
+  Q.SuperLearner.control = QU.SuperLearner.control(),
   cluster.var = NULL,
   obs.weight.var = NULL,
   corstr = "independence",
@@ -71,19 +55,19 @@ MR_G_IPCW_surv(
 
 \item{Q.formula}{formula to specify covariates being used for estimating P(T > t | T > \code{visit.times[truncation.index]}, covariates available at \code{visit.times[truncation.index]}). Set to include intercept only (\code{~ 0} or \code{~ -1}) for marginal survival probability if \code{truncation.index} is 1. Default is \code{~ .}, which includes main effects of all available covariates up to (inclusive) the \code{visit.times[truncation.index]}.}
 
-\item{event.method}{one of \code{"survSuperLearner"}, \code{"rfsrc"}, \code{"ctree"}, \code{"rpart"}, \code{"cforest"}, \code{"coxph"}, \code{"coxtime"}, \code{"deepsurv"}, \code{"survival_forest"}. The machine learning method to fit  survival curves of time to event in each time window. See the underlying wrappers \code{\link{fit_survSuperLearner}}, \code{\link{fit_rfsrc}}, \code{\link{fit_ctree}}, \code{\link{fit_rpart}}, \code{\link{fit_cforest}}, \code{\link{fit_coxph}}, \code{\link{fit_coxtime}}, \code{\link{fit_deepsurv}}, \code{\link{fit_survival_forest}} for more details and the available options. Default is \code{"survSuperLearner"}.}
+\item{event.method}{For each time window, one of \code{"survSuperLearner"}, \code{"rfsrc"}, \code{"ctree"}, \code{"rpart"}, \code{"cforest"}, \code{"coxph"}, \code{"coxtime"}, \code{"deepsurv"}, \code{"survival_forest"}. The machine learning method to fit  survival curves of time to event in each time window. See the underlying wrappers \code{\link{fit_survSuperLearner}}, \code{\link{fit_rfsrc}}, \code{\link{fit_ctree}}, \code{\link{fit_rpart}}, \code{\link{fit_cforest}}, \code{\link{fit_coxph}}, \code{\link{fit_coxtime}}, \code{\link{fit_deepsurv}}, \code{\link{fit_survival_forest}} for more details and the available options. Default is \code{"survSuperLearner"} for all time windows. To specify different methods for different time windows, use a character vector of method names with length equal to the number of time windows.}
 
-\item{censor.method}{one of \code{"survSuperLearner"}, \code{"rfsrc"}, \code{"ctree"}, \code{"rpart"}, \code{"cforest"}, \code{"coxph"}, \code{"coxtime"}, \code{"deepsurv"}, \code{"survival_forest"}. The machine learning method to fit survival survival curves of time to censoring in each time window. Similar to \code{event.method}. Default is \code{"survSuperLearner"}.}
+\item{censor.method}{For each time window, one of \code{"survSuperLearner"}, \code{"rfsrc"}, \code{"ctree"}, \code{"rpart"}, \code{"cforest"}, \code{"coxph"}, \code{"coxtime"}, \code{"deepsurv"}, \code{"survival_forest"}. The machine learning method to fit survival survival curves of time to censoring in each time window. Similar to \code{event.method}. Default is \code{"survSuperLearner"}. To specify different methods for different time windows, use a character vector of method names with length equal to the number of time windows.}
 
-\item{event.control}{a returned value from \code{\link{fit_surv_option}} to control fitting survival curves of time to event. Ignored if \code{event.method} is chosen as \code{"survSuperLearner"}.}
+\item{event.control}{a returned value from \code{\link{fit_surv_option}} to control fitting survival curves of time to event. To specify different options for different time windows, use a list of options with length equal to the number of time windows.}
 
-\item{censor.control}{a returned value from \code{\link{fit_surv_option}} to control fitting survival curves of time to censoring. Ignored if \code{event.method} is chosen as \code{"survSuperLearner"}.}
+\item{censor.control}{similar to \code{event.control} for fitting survival curves of time to censoring.}
 
 \item{U.nfold}{number of folds to cross-fit nuisance outcome functions U for MR and G-computation estimators. If set to 1, no cross-fitting is used. Defaults to 2.}
 
-\item{U.SuperLearner.control}{a list containing optional arguments passed to \code{\link[SuperLearner:SuperLearner]{SuperLearner::SuperLearner}}. We encourage using a named list. Will be passed to \code{\link[SuperLearner:SuperLearner]{SuperLearner::SuperLearner}} by running a command like \code{do.call(SuperLearner, U.SuperLearner.control)}. Default is \code{list(SL.library="SL.lm")}, which uses linear regression. The user should not specify \code{Y} and \code{X}, and must specify \code{SL.library} if default is not used. If \code{family} is gaussian by default if unspecified, and must be gaussian if specified, with a possibly non-identity link.}
+\item{U.SuperLearner.control}{a returned value from \code{\link{QU.SuperLearner.control}} to control fitting conditional survival probability functions. To specify different options for different time windows, if there are K stages from \code{truncation.index} to the last stage, use a list of options with length K-1.}
 
-\item{Q.SuperLearner.control}{Similar to \code{U.SuperLearner.control}. When \code{Q.formula} only includes an intercept (\code{~1}, \code{~ 0} or \code{~ -1}), \code{\link[SuperLearner:SuperLearner]{SuperLearner::SuperLearner}} will not be called and the default setting can be used.}
+\item{Q.SuperLearner.control}{a returned value from \code{\link{QU.SuperLearner.control}} to control fitting Q(t)=P(T > t | T > truncation time, covariates available at truncation time). When \code{Q.formula} only includes an intercept (\code{~1}, \code{~ 0} or \code{~ -1}), \code{\link[SuperLearner:SuperLearner]{SuperLearner::SuperLearner}} will not be called and \code{Q.SuperLearner.control} is ignored.}
 
 \item{cluster.var}{optional clustering variable name in \code{follow.up.time}. If provided, clustering will be accounted for when estimating nuisance functions and inferring about the marginal survival probability (if the marginal survival probability is of interest). If \code{cluster.var} is not provided or \code{NULL}, data is assumed to be iid.}
 
@@ -133,8 +117,8 @@ MR_G_IPCW_surv(covariates=covariates,
     censor.control=fit_surv_option(
         option=list(event.SL.library="survSL.coxph",
                     cens.SL.library="survSL.coxph")),
-    U.SuperLearner.control=list(family=gaussian(),SL.library="SL.lm"),
-    Q.SuperLearner.control=list(family=gaussian(),SL.library="SL.lm"),
+    U.SuperLearner.control=QU.SuperLearner.control(family=gaussian(),SL.library="SL.lm"),
+    Q.SuperLearner.control=QU.SuperLearner.control(family=gaussian(),SL.library="SL.lm"),
     obs.weight.var="wt"
 )
 }

@@ -56,7 +56,7 @@ Gtransform<-function(follow.up.time,pred_event_obj,tvals,next.visit.time=Inf,id.
 #' @param event.var see \code{\link{MRsurv}}
 #' @param U.formula see \code{\link{MRsurv}}
 #' @param Q.formula see \code{\link{MRsurv}}
-#' @param U.SuperLearner.control see \code{\link{MRsurv}}
+#' @param U.SuperLearner.control see \code{\link{MRsurv}}. Must be a list with length being the number of relevant time windows minus 1
 #' @param Q.SuperLearner.control see \code{\link{MRsurv}}
 #' @param U.folds a list of vectors of id (identified by variable `id.var`) corresponding to each fold for cross-fitting. Set to a list containing one vector for no cross-fitting.
 #' @param cluster.var see \code{\link{MRsurv}}. If provided, this variable is used to split samples when using cross-fitting and/or cross-valiation, as well as inference of marginal survival probability.
@@ -64,9 +64,7 @@ Gtransform<-function(follow.up.time,pred_event_obj,tvals,next.visit.time=Inf,id.
 #' @param corstr see \code{\link{MRsurv}}
 #' @return a list of `SuperLearner` models (conditional probability) or \code{\link{intercept_IF_model}} objects (marginal probability) corresponding to `tvals`.
 #' @section Warning:
-#' This function is designed to be called by other functions such as \code{\link{MRsurv}}, therefore inputs are not thoroughly checked. Incorrect inputs may lead to errors with non-informative messages. The user may call this function if more flexibility is desired.
-#' @section Custom learners:
-#' Custom learners may be specified by providing an element named `SL.library` in `Q.SuperLearner.control`.The user may refer to resources such as \url{https://cran.r-project.org/web/packages/SuperLearner/vignettes/Guide-to-SuperLearner.html} for a guide to create custom learners.
+#' This function is designed to be called by other functions such as \code{\link{Gsurv}}, therefore inputs are not thoroughly checked. Incorrect inputs may lead to errors with non-informative messages. The user may call this function if more flexibility is desired.
 #' @export
 Greg.SuperLearner<-function(
     covariates,
@@ -80,8 +78,8 @@ Greg.SuperLearner<-function(
     event.var,
     U.formula=NULL,
     Q.formula=~.,
-    U.SuperLearner.control=list(family=gaussian(),SL.library="SL.lm"),
-    Q.SuperLearner.control=U.SuperLearner.control,
+    U.SuperLearner.control,
+    Q.SuperLearner.control=QU.SuperLearner.control(family=gaussian(),SL.library="SL.lm"),
     U.folds,
     cluster.var=NULL,
     obs.weight.var=NULL,
@@ -193,7 +191,7 @@ Greg.SuperLearner<-function(
                     if(length(U.folds)==1){
                         SuperLearner.arg<-c(
                             list(Y=Y,X=X,obsWeights=obsWeights),
-                            U.SuperLearner.control
+                            U.SuperLearner.control[[k-truncation.index]]
                         )
                         if(!is.null(cluster.var)){
                             if("cvControl" %in% names(SuperLearner.arg) && 
@@ -209,7 +207,7 @@ Greg.SuperLearner<-function(
                             X<-model.frame(form,train.data%>%filter(!(.data[[id.var]] %in% fold))%>%select(!all_of(id.var)))
                             SuperLearner.arg<-c(
                                 list(Y=Y[!(names(Y) %in% fold)],X=X,obsWeights=obsWeights[!(names(obsWeights) %in% fold)]),
-                                U.SuperLearner.control
+                                U.SuperLearner.control[[k-truncation.index]]
                             )
                             if(!is.null(cluster.var)){
                                 if("cvControl" %in% names(SuperLearner.arg) && 

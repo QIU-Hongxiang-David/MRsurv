@@ -8,6 +8,7 @@
 #' @param tune whether to tune `mtry` and `nodesize` for \code{\link[randomForestSRC:rfsrc]{randomForestSRC::rfsrc}}. Ignored for other methods.
 #' @param tune.option a list containing optional arguments passed to \code{\link[randomForestSRC:tune]{randomForestSRC::tune.rfsrc}} if \code{\link[randomForestSRC:rfsrc]{randomForestSRC::rfsrc}} is used and `tune=TRUE`; ignored otherwise. `doBest` should not be specified.
 #' @param lambda bandwidth parameter for uniform smoothing kernel in nearest neighbours estimation for method `"akritas"`. The default value of 0.5 is arbitrary and should be chosen by the user
+#' @return a `fit_surv_option` object
 #' @export
 fit_surv_option<-function(nfold=2,option=list(),time.grid=NULL,time.grid.size=250,oob=TRUE,tune=TRUE,tune.option=list(),lambda=0.5){
     assert_that(is.count(nfold))

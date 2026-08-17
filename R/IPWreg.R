@@ -75,9 +75,7 @@ IPCWtransform<-function(follow.up.time,pred_censor_obj,tvals,next.visit.time=Inf
 #' @param denom.survival.trunc see \code{\link{MRsurv}}
 #' @return a list of `SuperLearner` models (conditional probability) or \code{\link{intercept_IF_model}} objects (marginal probability) corresponding to `tvals`.
 #' @section Warning:
-#' This function is designed to be called by other functions such as \code{\link{MRsurv}}, therefore inputs are not thoroughly checked. Incorrect inputs may lead to errors with non-informative messages. The user may call this function if more flexibility is desired.
-#' @section Custom learners:
-#' Custom learners may be specified by providing an element named `SL.library` in `Q.SuperLearner.control`.The user may refer to resources such as \url{https://cran.r-project.org/web/packages/SuperLearner/vignettes/Guide-to-SuperLearner.html} for a guide to create custom learners.
+#' This function is designed to be called by other functions such as \code{\link{IPCWsurv}}, therefore inputs are not thoroughly checked. Incorrect inputs may lead to errors with non-informative messages. The user may call this function if more flexibility is desired.
 #' @export
 IPCWreg.SuperLearner<-function(
     covariates,
@@ -90,7 +88,7 @@ IPCWreg.SuperLearner<-function(
     time.var,
     event.var,
     Q.formula=~.,
-    Q.SuperLearner.control=list(family=gaussian(),SL.library="SL.lm"),
+    Q.SuperLearner.control=QU.SuperLearner.control(family=gaussian(),SL.library="SL.lm"),
     cluster.var=NULL,
     obs.weight.var=NULL,
     corstr="independence",

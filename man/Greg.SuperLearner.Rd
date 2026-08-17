@@ -16,8 +16,9 @@ Greg.SuperLearner(
   event.var,
   U.formula = NULL,
   Q.formula = ~.,
-  U.SuperLearner.control = list(family = gaussian(), SL.library = "SL.lm"),
-  Q.SuperLearner.control = U.SuperLearner.control,
+  U.SuperLearner.control,
+  Q.SuperLearner.control = QU.SuperLearner.control(family = gaussian(), SL.library =
+    "SL.lm"),
   U.folds,
   cluster.var = NULL,
   obs.weight.var = NULL,
@@ -47,7 +48,7 @@ Greg.SuperLearner(
 
 \item{Q.formula}{see \code{\link{MRsurv}}}
 
-\item{U.SuperLearner.control}{see \code{\link{MRsurv}}}
+\item{U.SuperLearner.control}{see \code{\link{MRsurv}}. Must be a list with length being the number of relevant time windows minus 1}
 
 \item{Q.SuperLearner.control}{see \code{\link{MRsurv}}}
 
@@ -67,7 +68,7 @@ Apply G-computation transformation on fitted survival and censoring probabilitie
 }
 \section{Warning}{
 
-This function is designed to be called by other functions such as \code{\link{MRsurv}}, therefore inputs are not thoroughly checked. Incorrect inputs may lead to errors with non-informative messages. The user may call this function if more flexibility is desired.
+This function is designed to be called by other functions such as \code{\link{Gsurv}}, therefore inputs are not thoroughly checked. Incorrect inputs may lead to errors with non-informative messages. The user may call this function if more flexibility is desired.
 }
 
 \section{Custom learners}{

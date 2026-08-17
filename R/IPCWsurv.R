@@ -13,9 +13,9 @@
 #' @param event.var (character) name of the variable containing indicator of event/censoring in the data frame `follow.up.time`.
 #' @param censor.formula a list of formulas to specify covariates being used when estimating the conditional survival probabilities of time to censoring at each visit time. The length should be the number of visit times after `truncation.index` (inclusive). Default is `~ .` for all visit times, which includes main effects of all covariates available at each visit time.
 #' @param Q.formula formula to specify covariates being used for estimating P(T > t | T > `visit.times[truncation.index]`, covariates available at `visit.times[truncation.index]`). Set to include intercept only (`~ 0` or `~ -1`) for marginal survival probability. Default is `~ .`, which includes main effects of all available covariates up to (inclusive) the `visit.times[truncation.index]`.
-#' @param censor.method one of `"survSuperLearner"`, `"rfsrc"`, `"ctree"`, `"rpart"`, `"cforest"`, `"coxph"`, `"coxtime"`, `"deepsurv"`, `"survival_forest"`. The machine learning method to fit survival survival curves of time to censoring in each time window. Default is `"rfsrc`. See the underlying wrappers \code{\link{fit_survSuperLearner}}, \code{\link{fit_rfsrc}}, \code{\link{fit_ctree}}, \code{\link{fit_rpart}}, \code{\link{fit_cforest}}, \code{\link{fit_coxph}}, \code{\link{fit_coxtime}}, \code{\link{fit_deepsurv}}, \code{\link{fit_survival_forest}} for more details and the available options. Default is `"survSuperLearner"`.
-#' @param censor.control a returned value from \code{\link{fit_surv_option}}. For `censor.method="survSuperLearner"`, default is setting library for both event and censoring to be `c("survSL.coxph","survSL.weibreg","survSL.gam","survSL.rfsrc")`.
-#' @param Q.SuperLearner.control a list containing optional arguments passed to \code{\link[SuperLearner:SuperLearner]{SuperLearner::SuperLearner}}. We encourage using a named list. Will be passed to \code{\link[SuperLearner:SuperLearner]{SuperLearner::SuperLearner}} by running a command like `do.call(SuperLearner, Q.SuperLearner.control)`. Default is `list(SL.library="SL.lm")`, which uses linear regression. The user should not specify `Y` and `X`, and must specify `SL.library` if default is not used. If `family` is gaussian by default if unspecified, and must be gaussian if specified, with a possibly non-identity link. When `Q.formula` only includes an intercept, \code{\link[SuperLearner:SuperLearner]{SuperLearner::SuperLearner}} will not be called and the default setting can be used.
+#' @param censor.method For each time window, one of `"survSuperLearner"`, `"rfsrc"`, `"ctree"`, `"rpart"`, `"cforest"`, `"coxph"`, `"coxtime"`, `"deepsurv"`, `"survival_forest"`. The machine learning method to fit survival survival curves of time to censoring in each time window. Similar to `event.method`. Default is `"survSuperLearner"`. To specify different methods for different time windows, use a character vector of method names with length equal to the number of time windows.
+#' @param censor.control a returned value from \code{\link{fit_surv_option}} to control fitting survival curves of time to censoring. To specify different options for different time windows, use a list of options with length equal to the number of time windows.
+#' @param Q.SuperLearner.control a returned value from \code{\link{QU.SuperLearner.control}} to control fitting Q(t)=P(T > t | T > truncation time, covariates available at truncation time). When `Q.formula` only includes an intercept (`~1`, `~ 0` or `~ -1`), \code{\link[SuperLearner:SuperLearner]{SuperLearner::SuperLearner}} will not be called and `Q.SuperLearner.control` is ignored.
 #' @param cluster.var optional clustering variable name in `follow.up.time`. If provided, clustering will be accounted for when estimating nuisance functions and inferring about the marginal survival probability (if the marginal survival probability is of interest). If `cluster.var` is not provided or `NULL`, data is assumed to be iid.
 #' @param obs.weight.var optional observation weights variable name in `follow.up.time`. If provided, these weights will be passed to each learner, which may or may not make use of them (or make use of them correctly). These weights will be used in the ensemble step to weight the empirical risk function when using `"survSuperLearner"` and \code{\link[SuperLearner:SuperLearner]{SuperLearner::SuperLearner}}.
 #' @param corstr optional working correlation structure passed to \code{\link[geepack:geeglm]{geepack::geeglm}} when estimating marginal survival probabilities with clustered data. Default is `"independence"`. See \code{\link[geepack:geeglm]{geepack::geeglm}} for more details.
@@ -42,12 +42,11 @@
 #'     event.var="Delta",
 #'     censor.formula=lapply(visit.times,function(x) ~.),
 #'     Q.formula=~., #~1, ~0 or ~-1 for marginal survival
-#'     event.method="survSuperLearner",
 #'     censor.method="survSuperLearner",
 #'     censor.control=fit_surv_option(
 #'         option=list(event.SL.library="survSL.coxph",
 #'                     cens.SL.library="survSL.coxph")),
-#'     Q.SuperLearner.control=list(family=gaussian(),SL.library="SL.lm"),
+#'     Q.SuperLearner.control=QU.SuperLearner.control(family=gaussian(),SL.library="SL.lm"),
 #'     obs.weight.var="wt"
 #' )
 #' }
@@ -63,15 +62,9 @@ IPCWsurv<-function(
         event.var,
         censor.formula=NULL,
         Q.formula=~.,
-        censor.method=c("survSuperLearner","rfsrc","ctree","rpart","cforest","coxph","coxtime","deepsurv","survival_forest"),
-        censor.control=if(censor.method!="survSuperLearner"){
-            fit_surv_option()
-        }else{
-            fit_surv_option(
-                option=list(event.SL.library=c("survSL.coxph","survSL.weibreg","survSL.gam","survSL.rfsrc"),
-                            cens.SL.library=c("survSL.coxph","survSL.weibreg","survSL.gam","survSL.rfsrc")))
-        },
-        Q.SuperLearner.control=list(family=gaussian(),SL.library="SL.lm"),
+        censor.method="survSuperLearner",
+        censor.control=NULL,
+        Q.SuperLearner.control=QU.SuperLearner.control(),
         cluster.var=NULL,
         obs.weight.var=NULL,
         corstr="independence",
@@ -246,33 +239,33 @@ IPCWsurv<-function(
     }
     
     #check if censor.control is a fit_surv_option object
-    if(!inherits(censor.control,"fit_surv_option")){
-        stop("censor.control is not a fit_surv_option object")
-    }
+    # if(!inherits(censor.control,"fit_surv_option")){
+    #     stop("censor.control is not a fit_surv_option object")
+    # }
     
-    #check if Q.SuperLearner.control is a list and whether it specifies Y or X
-    assert_that(is.list(Q.SuperLearner.control))
-    if(any(c("Y","X") %in% names(Q.SuperLearner.control))){
-        stop("Q.SuperLearner.control should not not specify Y or X")
-    }
-    
-    if(!("family" %in% names(Q.SuperLearner.control))){
-        Q.SuperLearner.control$family<-gaussian()
-    }
-    if(is.function(Q.SuperLearner.control$family)){
-        Q.SuperLearner.control$family<-Q.SuperLearner.control$family()
-    }
-    if(is.character(Q.SuperLearner.control$family)){
-        if(Q.SuperLearner.control$family!="gaussian"){
-            warning("Q.SuperLearner.control$family is not gaussian")
-        }
-    }else if(Q.SuperLearner.control$family$family!="gaussian"){
-        warning("Q.SuperLearner.control$family is not gaussian")
-    }
-    
-    if(!("SL.library" %in% names(Q.SuperLearner.control))){
-        stop("Q.SuperLearner.control should specify SL.library")
-    }
+    # #check if Q.SuperLearner.control is a list and whether it specifies Y or X
+    # assert_that(is.list(Q.SuperLearner.control))
+    # if(any(c("Y","X") %in% names(Q.SuperLearner.control))){
+    #     stop("Q.SuperLearner.control should not not specify Y or X")
+    # }
+    # 
+    # if(!("family" %in% names(Q.SuperLearner.control))){
+    #     Q.SuperLearner.control$family<-gaussian()
+    # }
+    # if(is.function(Q.SuperLearner.control$family)){
+    #     Q.SuperLearner.control$family<-Q.SuperLearner.control$family()
+    # }
+    # if(is.character(Q.SuperLearner.control$family)){
+    #     if(Q.SuperLearner.control$family!="gaussian"){
+    #         warning("Q.SuperLearner.control$family is not gaussian")
+    #     }
+    # }else if(Q.SuperLearner.control$family$family!="gaussian"){
+    #     warning("Q.SuperLearner.control$family is not gaussian")
+    # }
+    # 
+    # if(!("SL.library" %in% names(Q.SuperLearner.control))){
+    #     stop("Q.SuperLearner.control should specify SL.library")
+    # }
     
     #check observation weight
     if(!is.null(obs.weight.var)){
@@ -284,6 +277,30 @@ IPCWsurv<-function(
         }
         # follow.up.time<-follow.up.time%>%mutate("{obs.weight.var}":=.data[[obs.weight.var]]/mean(.data[[obs.weight.var]]))
     }
+    
+    #check and set survival nuisance estimation settings
+    assert_that(is.character(censor.method))
+    if(length(censor.method)==1){
+        censor.method<-rep(censor.method,K-index.shift)
+    }
+    
+    if(is.null(censor.control)){
+        censor.control<-lapply(censor.method,function(x){
+            if(x=="survSuperLearner"){
+                fit_surv_option(
+                    option=list(censor.SL.library=c("survSL.coxph","survSL.weibreg","survSL.gam","survSL.rfsrc"),
+                                cens.SL.library=c("survSL.coxph","survSL.weibreg","survSL.gam","survSL.rfsrc")))
+            }else{
+                fit_surv_option()
+            }
+        })
+    }else if(inherits(censor.control,"fit_surv_option")){
+        censor.control<-lapply(1:(K-index.shift),function(...) censor.control)
+    }else if(!is.list(censor.control) || length(censor.control)!=K-index.shift || any(sapply(censor.control,function(x) !inherits(x,"fit_surv_option")))){
+        stop("censor.control must be NULL, a fit_surv_option object, or a list of fit_surv_option objects with length being the number of relevant time windows")
+    }
+    
+    assert_that(inherits(Q.SuperLearner.control,"QU.SuperLearner.control"))
     
     ############################################################################
     # run survival regressions
@@ -331,8 +348,8 @@ IPCWsurv<-function(
                                paste(as.character(censor.formula[[k-index.shift]]),collapse=""),
                                collapse=""))
         fit_surv_arg<-c(
-            list(method=censor.method,formula=form,data=censor.surv.data,id.var=id.var,time.var=time.var,event.var=event.var,cluster.var=cluster.var,obs.weight.var=obs.weight.var),
-            censor.control
+            list(method=censor.method[k-index.shift],formula=form,data=censor.surv.data,id.var=id.var,time.var=time.var,event.var=event.var,cluster.var=cluster.var,obs.weight.var=obs.weight.var),
+            censor.control[[k-index.shift]]
         )
         do.call(fit_surv,fit_surv_arg)
     })

@@ -32,6 +32,9 @@ fit_surv_option(
 
 \item{lambda}{bandwidth parameter for uniform smoothing kernel in nearest neighbours estimation for method \code{"akritas"}. The default value of 0.5 is arbitrary and should be chosen by the user}
 }
+\value{
+a \code{fit_surv_option} object
+}
 \description{
 Options of machine learning methods' wrappers for fitting conditional survival curves
 }

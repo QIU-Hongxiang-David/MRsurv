@@ -15,7 +15,8 @@ IPCWreg.SuperLearner(
   time.var,
   event.var,
   Q.formula = ~.,
-  Q.SuperLearner.control = list(family = gaussian(), SL.library = "SL.lm"),
+  Q.SuperLearner.control = QU.SuperLearner.control(family = gaussian(), SL.library =
+    "SL.lm"),
   cluster.var = NULL,
   obs.weight.var = NULL,
   corstr = "independence",
@@ -33,7 +34,8 @@ IPCWreg.SuperLearner(
   time.var,
   event.var,
   Q.formula = ~.,
-  Q.SuperLearner.control = list(family = gaussian(), SL.library = "SL.lm"),
+  Q.SuperLearner.control = QU.SuperLearner.control(family = gaussian(), SL.library =
+    "SL.lm"),
   cluster.var = NULL,
   obs.weight.var = NULL,
   corstr = "independence",
@@ -86,7 +88,7 @@ Apply IPCW transformation on fitted survival and censoring probabilities in each
 This function is designed to be called by other functions such as \code{\link{MRsurv}}, therefore inputs are not thoroughly checked. Incorrect inputs may lead to errors with non-informative messages. The user may call this function if more flexibility is desired.
 
 
-This function is designed to be called by other functions such as \code{\link{MRsurv}}, therefore inputs are not thoroughly checked. Incorrect inputs may lead to errors with non-informative messages. The user may call this function if more flexibility is desired.
+This function is designed to be called by other functions such as \code{\link{IPCWsurv}}, therefore inputs are not thoroughly checked. Incorrect inputs may lead to errors with non-informative messages. The user may call this function if more flexibility is desired.
 }
 
 \section{Custom learners}{

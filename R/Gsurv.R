@@ -14,11 +14,11 @@
 #' @param event.formula a list of formulas to specify covariates being used when estimating the conditional survival probabilities of time to event at each visit time. The length should be the number of visit times after `truncation.index` (inclusive). Default is `~ .` for all visit times, which includes main effects of all covariates available at each visit time.
 #' @param U.formula a list of formulas to specify covariates being used for estimating intermediate outcome nuisance functions of covariates available at `visit.times[k]` for each `k` ranging from `truncation.index` to the second to the last relevant visit time. If there are K stages from `truncation.index` to the last stage, `U.formula` should be a list of K-1 formulas. For example, if there are two visit times, to estimate the marginal survival probability with at `tvals` after the second visit time, `U.formula` should be a list of 1 formula. Default is `~ .` for every stage.
 #' @param Q.formula formula to specify covariates being used for estimating P(T > t | T > `visit.times[truncation.index]`, covariates available at `visit.times[truncation.index]`). Set to include intercept only (`~ 0` or `~ -1`) for marginal survival probability if `truncation.index` is 1. Default is `~ .`, which includes main effects of all available covariates up to (inclusive) the `visit.times[truncation.index]`.
-#' @param event.method one of `"survSuperLearner"`, `"rfsrc"`, `"ctree"`, `"rpart"`, `"cforest"`, `"coxph"`, `"coxtime"`, `"deepsurv"`, `"survival_forest"`. The machine learning method to fit  survival curves of time to event in each time window. See the underlying wrappers \code{\link{fit_survSuperLearner}}, \code{\link{fit_rfsrc}}, \code{\link{fit_ctree}}, \code{\link{fit_rpart}}, \code{\link{fit_cforest}}, \code{\link{fit_coxph}}, \code{\link{fit_coxtime}}, \code{\link{fit_deepsurv}}, \code{\link{fit_survival_forest}} for more details and the available options. Default is `"survSuperLearner"`.
-#' @param event.control a returned value from \code{\link{fit_surv_option}}. For `event.method="survSuperLearner"`, default is setting library for both event and censoring to be `c("survSL.coxph","survSL.weibreg","survSL.gam","survSL.rfsrc")`.
+#' @param event.method one of `"survSuperLearner"`, `"rfsrc"`, `"ctree"`, `"rpart"`, `"cforest"`, `"coxph"`, `"coxtime"`, `"deepsurv"`, `"survival_forest"`. The machine learning method to fit  survival curves of time to event in each time window. See the underlying wrappers \code{\link{fit_survSuperLearner}}, \code{\link{fit_rfsrc}}, \code{\link{fit_ctree}}, \code{\link{fit_rpart}}, \code{\link{fit_cforest}}, \code{\link{fit_coxph}}, \code{\link{fit_coxtime}}, \code{\link{fit_deepsurv}}, \code{\link{fit_survival_forest}} for more details and the available options. Default is `"survSuperLearner"` for all time windows. To specify different methods for different time windows, use a character vector of method names with length equal to the number of time windows.
+#' @param event.control a returned value from \code{\link{fit_surv_option}} to control fitting survival curves of time to event. To specify different options for different time windows, use a list of options with length equal to the number of time windows.
 #' @param U.nfold number of folds to cross-fit nuisance outcome functions U. If set to 1, no cross-fitting is used. Defaults to 2.
-#' @param U.SuperLearner.control a list containing optional arguments passed to \code{\link[SuperLearner:SuperLearner]{SuperLearner::SuperLearner}}. We encourage using a named list. Will be passed to \code{\link[SuperLearner:SuperLearner]{SuperLearner::SuperLearner}} by running a command like `do.call(SuperLearner, U.SuperLearner.control)`. Default is `list(SL.library="SL.lm")`, which uses linear regression. The user should not specify `Y` and `X`, and must specify `SL.library` if default is not used. If `family` is gaussian by default if unspecified, and must be gaussian if specified, with a possibly non-identity link.
-#' @param Q.SuperLearner.control Similar to `U.SuperLearner.control`. When `Q.formula` only includes an intercept (`~1`, `~ 0` or `~ -1`), \code{\link[SuperLearner:SuperLearner]{SuperLearner::SuperLearner}} will not be called and the default setting can be used.
+#' @param U.SuperLearner.control a returned value from \code{\link{QU.SuperLearner.control}} to control fitting conditional survival probability functions. To specify different options for different time windows, if there are K stages from `truncation.index` to the last stage, use a list of options with length K-1.
+#' @param Q.SuperLearner.control a returned value from \code{\link{QU.SuperLearner.control}} to control fitting Q(t)=P(T > t | T > truncation time, covariates available at truncation time). When `Q.formula` only includes an intercept (`~1`, `~ 0` or `~ -1`), \code{\link[SuperLearner:SuperLearner]{SuperLearner::SuperLearner}} will not be called and `Q.SuperLearner.control` is ignored.
 #' @param cluster.var optional clustering variable name in `follow.up.time`. If provided, clustering will be accounted for when estimating nuisance functions and inferring about the marginal survival probability (if the marginal survival probability is of interest). If `cluster.var` is not provided or `NULL`, data is assumed to be iid.
 #' @param obs.weight.var optional observation weights variable name in `follow.up.time`. If provided, these weights will be passed to each learner, which may or may not make use of them (or make use of them correctly). These weights will be used in the ensemble step to weight the empirical risk function when using `"survSuperLearner"` and \code{\link[SuperLearner:SuperLearner]{SuperLearner::SuperLearner}}.
 #' @param corstr optional working correlation structure passed to \code{\link[geepack:geeglm]{geepack::geeglm}} when estimating marginal survival probabilities with clustered data. Default is `"independence"`. See \code{\link[geepack:geeglm]{geepack::geeglm}} for more details.
@@ -50,8 +50,8 @@
 #'     event.control=fit_surv_option(
 #'         option=list(event.SL.library="survSL.coxph",
 #'                     cens.SL.library="survSL.coxph")),
-#'     U.SuperLearner.control=list(family=gaussian(),SL.library="SL.lm"),
-#'     Q.SuperLearner.control=list(family=gaussian(),SL.library="SL.lm"),
+#'     U.SuperLearner.control=QU.SuperLearner.control(family=gaussian(),SL.library="SL.lm"),
+#'     Q.SuperLearner.control=QU.SuperLearner.control(family=gaussian(),SL.library="SL.lm"),
 #'     obs.weight.var="wt"
 #' )
 #' }
@@ -68,17 +68,11 @@ Gsurv<-function(
     event.formula=NULL,
     U.formula=NULL,
     Q.formula=~.,
-    event.method=c("survSuperLearner","rfsrc","ctree","rpart","cforest","coxph","coxtime","deepsurv","dnnsurv","akritas","survival_forest"),
-    event.control=if(event.method!="survSuperLearner"){
-        fit_surv_option()
-    }else{
-        fit_surv_option(
-            option=list(event.SL.library=c("survSL.coxph","survSL.weibreg","survSL.gam","survSL.rfsrc"),
-                        cens.SL.library=c("survSL.coxph","survSL.weibreg","survSL.gam","survSL.rfsrc")))
-    },
+    event.method="survSuperLearner",
+    event.control=NULL,
     U.nfold=2,
-    U.SuperLearner.control=list(family=gaussian(),SL.library="SL.lm"),
-    Q.SuperLearner.control=U.SuperLearner.control,
+    U.SuperLearner.control=QU.SuperLearner.control(),
+    Q.SuperLearner.control=QU.SuperLearner.control(),
     cluster.var=NULL,
     obs.weight.var=NULL,
     corstr="independence"
@@ -273,53 +267,53 @@ Gsurv<-function(
     }
     
     #check if event.control is a fit_surv_option object
-    if(!inherits(event.control,"fit_surv_option")){
-        stop("event.control is not a fit_surv_option object")
-    }
+    # if(!inherits(event.control,"fit_surv_option")){
+    #     stop("event.control is not a fit_surv_option object")
+    # }
     
     #check if U.SuperLearner.control and Q.SuperLearner.control are lists, and whether they specify Y or X
-    assert_that(is.list(U.SuperLearner.control),is.list(Q.SuperLearner.control))
-    if(any(c("Y","X","obsWeights") %in% names(U.SuperLearner.control))){
-        stop("U.SuperLearner.control should not not specify Y or X")
-    }
-    if(any(c("Y","X","obsWeights") %in% names(Q.SuperLearner.control))){
-        stop("Q.SuperLearner.control should not not specify Y or X")
-    }
-    
-    if(!("family" %in% names(U.SuperLearner.control))){
-        U.SuperLearner.control$family<-gaussian()
-    }
-    if(is.function(U.SuperLearner.control$family)){
-        U.SuperLearner.control$family<-U.SuperLearner.control$family()
-    }
-    if(is.character(U.SuperLearner.control$family)){
-        if(U.SuperLearner.control$family!="gaussian"){
-            warning("U.SuperLearner.control$family is not gaussian")
-        }
-    }else if(U.SuperLearner.control$family$family!="gaussian"){
-        warning("U.SuperLearner.control$family is not gaussian")
-    }
-    
-    if(!("family" %in% names(Q.SuperLearner.control))){
-        Q.SuperLearner.control$family<-gaussian()
-    }
-    if(is.function(Q.SuperLearner.control$family)){
-        Q.SuperLearner.control$family<-Q.SuperLearner.control$family()
-    }
-    if(is.character(Q.SuperLearner.control$family)){
-        if(Q.SuperLearner.control$family!="gaussian"){
-            warning("Q.SuperLearner.control$family is not gaussian")
-        }
-    }else if(Q.SuperLearner.control$family$family!="gaussian"){
-        warning("Q.SuperLearner.control$family is not gaussian")
-    }
-    
-    if(!("SL.library" %in% names(U.SuperLearner.control))){
-        stop("U.SuperLearner.control should specify SL.library")
-    }
-    if(!("SL.library" %in% names(Q.SuperLearner.control))){
-        stop("Q.SuperLearner.control should specify SL.library")
-    }
+    # assert_that(is.list(U.SuperLearner.control),is.list(Q.SuperLearner.control))
+    # if(any(c("Y","X","obsWeights") %in% names(U.SuperLearner.control))){
+    #     stop("U.SuperLearner.control should not not specify Y or X")
+    # }
+    # if(any(c("Y","X","obsWeights") %in% names(Q.SuperLearner.control))){
+    #     stop("Q.SuperLearner.control should not not specify Y or X")
+    # }
+    # 
+    # if(!("family" %in% names(U.SuperLearner.control))){
+    #     U.SuperLearner.control$family<-gaussian()
+    # }
+    # if(is.function(U.SuperLearner.control$family)){
+    #     U.SuperLearner.control$family<-U.SuperLearner.control$family()
+    # }
+    # if(is.character(U.SuperLearner.control$family)){
+    #     if(U.SuperLearner.control$family!="gaussian"){
+    #         warning("U.SuperLearner.control$family is not gaussian")
+    #     }
+    # }else if(U.SuperLearner.control$family$family!="gaussian"){
+    #     warning("U.SuperLearner.control$family is not gaussian")
+    # }
+    # 
+    # if(!("family" %in% names(Q.SuperLearner.control))){
+    #     Q.SuperLearner.control$family<-gaussian()
+    # }
+    # if(is.function(Q.SuperLearner.control$family)){
+    #     Q.SuperLearner.control$family<-Q.SuperLearner.control$family()
+    # }
+    # if(is.character(Q.SuperLearner.control$family)){
+    #     if(Q.SuperLearner.control$family!="gaussian"){
+    #         warning("Q.SuperLearner.control$family is not gaussian")
+    #     }
+    # }else if(Q.SuperLearner.control$family$family!="gaussian"){
+    #     warning("Q.SuperLearner.control$family is not gaussian")
+    # }
+    # 
+    # if(!("SL.library" %in% names(U.SuperLearner.control))){
+    #     stop("U.SuperLearner.control should specify SL.library")
+    # }
+    # if(!("SL.library" %in% names(Q.SuperLearner.control))){
+    #     stop("Q.SuperLearner.control should specify SL.library")
+    # }
     
     #check observation weight
     if(!is.null(obs.weight.var)){
@@ -331,6 +325,39 @@ Gsurv<-function(
         }
         # follow.up.time<-follow.up.time%>%mutate("{obs.weight.var}":=.data[[obs.weight.var]]/mean(.data[[obs.weight.var]]))
     }
+    
+    #check and set survival nuisance estimation settings
+    assert_that(is.character(event.method))
+    if(length(event.method)==1){
+        event.method<-rep(event.method,K-index.shift)
+    }
+    
+    if(is.null(event.control)){
+        event.control<-lapply(event.method,function(x){
+            if(x=="survSuperLearner"){
+                fit_surv_option(
+                    option=list(event.SL.library=c("survSL.coxph","survSL.weibreg","survSL.gam","survSL.rfsrc"),
+                                cens.SL.library=c("survSL.coxph","survSL.weibreg","survSL.gam","survSL.rfsrc")))
+            }else{
+                fit_surv_option()
+            }
+        })
+    }else if(inherits(event.control,"fit_surv_option")){
+        event.control<-lapply(1:(K-index.shift),function(...) event.control)
+    }else if(!is.list(event.control) || length(event.control)!=K-index.shift || any(sapply(event.control,function(x) !inherits(x,"fit_surv_option")))){
+        stop("event.control must be NULL, a fit_surv_option object, or a list of fit_surv_option objects with length being the number of relevant time windows")
+    }
+    
+    #check and set U & Q estimation settings
+    if(K>truncation.index){
+        if(inherits(U.SuperLearner.control,"QU.SuperLearner.control")){
+            U.SuperLearner.control<-lapply(K-truncation.index,function(...) U.SuperLearner.control)
+        }else if(!is.list(U.SuperLearner.control) || length(U.SuperLearner.control)!=K-truncation.index || any(sapply(U.SuperLearner.control,function(x) !inherits(x,"QU.SuperLearner.control")))){
+            stop("U.SuperLearner.control must be QU.SuperLearner.control object or a list of QU.SuperLearner.control objects with length being the number of relevant time windows minus 1")
+        }
+    }
+    
+    assert_that(inherits(Q.SuperLearner.control,"QU.SuperLearner.control"))
     
     ############################################################################
     # run survival regressions
@@ -372,8 +399,8 @@ Gsurv<-function(
                                paste(as.character(event.formula[[k-index.shift]]),collapse=""),
                                collapse=""))
         fit_surv_arg<-c(
-            list(method=event.method,formula=form,data=event.surv.data,id.var=id.var,time.var=time.var,event.var=event.var,cluster.var=cluster.var,obs.weight.var=obs.weight.var),
-            event.control
+            list(method=event.method[k-index.shift],formula=form,data=event.surv.data,id.var=id.var,time.var=time.var,event.var=event.var,cluster.var=cluster.var,obs.weight.var=obs.weight.var),
+            event.control[[k-index.shift]]
         )
         do.call(fit_surv,fit_surv_arg)
     })
